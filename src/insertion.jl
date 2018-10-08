@@ -48,10 +48,11 @@ add_layer!(hnsw::HierarchicalNSW{T}) where T = push!(hnsw.mgraph, SimpleGraph{T}
 #retrieve nearest element
 
 function nearest(
-        hnsw,
+        hnsw::HierarchicalNSW{T},
         W, # list of candidates (indices)
-        q) # query index
-    buffer_idx = 0
+        q # query index
+        ) where {T}
+    buffer_idx = zero(T)
     buffer_dist = Inf
     for w ∈ W
         dist = distance(hnsw,w,q)
@@ -71,10 +72,11 @@ end
 
 #retrieve furthest element
 function get_furthest(
-        hnsw,
+        hnsw::HierarchicalNSW{T},
         W, # list of candidates (indices)
-        q) # query index
-    buffer_idx = 0
+        q # query index
+        ) where {T}
+    buffer_idx = zero(T)
     buffer_dist = 0.0
     for w ∈ W
         dist = distance(hnsw,w,q)
