@@ -86,7 +86,18 @@ function get_furthest(
     return buffer_idx
 end
 
-delete_furthest!(hnsw,W,q) = deleteat!(W, findfirst(x->x==get_furthest(hnsw, W, q), W))
+function delete_furthest!(hnsw::HierarchicalNSW{T},W,q) where {T}
+    idx = zero(T)
+    buffer_dist = 0.0
+    for (i,w) ∈ enumerate(W)
+        dist = distance(hnsw,w,q)
+        if dist >= buffer_dist
+            idx = i
+            buffer_dist = dist
+        end
+    end
+    deleteat!(W, idx)
+end
 
 function set_neighbors!(layer, q, new_conn)
     for c ∈ collect(neighbors(layer, q))
