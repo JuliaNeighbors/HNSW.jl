@@ -191,18 +191,21 @@ end
 
 #Alg 5
 function knn_search(
-        hnsw, #multilayer graph
+        hnsw::HierarchicalNSW{T}, #multilayer graph
         q, # query
         K, #number of nearest neighbors to return
-        ef) # size of dynamic list
-    W = [] #set of current nearest elements
+        ef # size of dynamic list
+        ) where {T}
+    #W = T[] #set of current nearest elements
     ep = get_enter_point(hnsw)
     L = get_top_layer(hnsw) #layer of ep , top layer of hnsw
-    for l_c ∈ L:-1:2 # hier 2 (1based indexing)
-        push!(W, search_layer(hnsw, q, ep, 1, l_c)[1])
-        ep = nearest(hnsw, W, q)
+    for l_c ∈ L:-1:2 # Iterate from top to second lowest
+        #push!(W, search_layer(hnsw, q, ep, 1, l_c)[1])
+        #ep = nearest(hnsw, W, q)
+        ep = search_layer(hnsw, q, ep, 1, l_c)[1] #Seems to be what is done in code. different(?) from description maybe?
     end
-    append!(W, search_layer(hnsw, q, ep, ef, 1))
+    #append!(W, search_layer(hnsw, q, ep, ef, 1))
+    W = search_layer(hnsw, q, ep, ef, 1)
     return select_neighbors(hnsw, q, W, K,1)# K nearest elements to q
 end
 
