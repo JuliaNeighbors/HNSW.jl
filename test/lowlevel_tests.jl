@@ -2,6 +2,7 @@ using HNSW
 using Test
 using LinearAlgebra
 using LightGraphs
+using NearestNeighbors
 
 @testset "Nearest & Furthest" begin
     for i=1:10
@@ -39,10 +40,10 @@ end
 end
 
 @testset "select_neighbors" begin
-    data = [rand(1) for i = 1:100]
+    data = [rand(5) for i = 1:100]
     hnsw = HierarchicalNSW(data)
     #Query Point
-    q = rand(1)
+    q = rand(5)
     C = unique(rand(1:100, 20))
     M = 5
     l_c = 1 #meaningless here
@@ -55,4 +56,16 @@ end
     q = rand(1:100)
     i = sortperm(data[C]; by=(p->norm(p-data[q])))
     @test C[i][1:M] == HNSW.select_neighbors(hnsw, q,C,M,l_c)
+end
+
+@testset "knn_search" begin
+    data = [rand(5) for i = 1:200]
+    hnsw = HierarchicalNSW(data)
+    for n = 1:10
+        #Query Point
+        q = rand(5)
+        labels = knn_search(hnsw, q, n, 20)
+        idxs = sortperm(data, by=(x->norm(x-q)))[1:n]
+        @test labels == idxs
+    end
 end
