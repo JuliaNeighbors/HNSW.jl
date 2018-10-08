@@ -123,8 +123,7 @@ function insert_point!(
     ep = get_enter_point(hnsw)
     L =  get_top_layer(hnsw)  #level of ep , top layer of hnsw
     l = floor(Int, -log(rand())* m_L) + 1
-
-    for l_c ∈ L:l
+    for l_c ∈ L+1:l #Is this correct?
         add_layer!(hnsw)
         push!(W, search_layer(hnsw, q, ep, 1,l_c)[1])
         ep = nearest(hnsw, W, q) #nearest element from q in W
