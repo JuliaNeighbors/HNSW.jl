@@ -7,24 +7,23 @@ using NearestNeighbors
 @testset "Nearest & Furthest" begin
     for i=1:10
         data = [rand(10) for i = 1:100]
-        hnsw = HierarchicalNSW(data)
         q = rand(10)
         nearest_idx = findmin([norm(q-x) for x ∈ data])[2]
         furthest_idx = findmax([norm(q-x) for x ∈ data])[2]
 
+        #prepare candidates
+        cand = [HNSW.Neighbor(n, norm(q-data[n])) for n=1:100]
         #nearest
-        @test nearest_idx == HNSW.nearest(hnsw,1:100, q)
+        @test nearest_idx == HNSW.nearest(cand).idx
 
         #extract_nearest!
-        C = collect(1:100)
-        @test nearest_idx == HNSW.extract_nearest!(hnsw, C, q)
-        @test nearest_idx ∉ C
+        @test nearest_idx == HNSW.extract_nearest!(cand).idx
+        @test nearest_idx ∉ getproperty.(cand, :idx)
 
         #furthest
-        @test furthest_idx == HNSW.get_furthest(hnsw, 1:100, q)
-        C = collect(1:100)
-        HNSW.delete_furthest!(hnsw,C,q)
-        @test furthest_idx ∉ C
+        @test furthest_idx == HNSW.furthest(cand).idx
+        HNSW.delete_furthest!(cand)
+        @test furthest_idx ∉ getproperty.(cand, :idx)
     end
 end
 
@@ -44,17 +43,18 @@ end
     hnsw = HierarchicalNSW(data)
     #Query Point
     q = rand(5)
-    C = unique(rand(1:100, 20))
+    C = [HNSW.Neighbor(i, norm(q-data[i])) for i ∈ unique(rand(1:100, 20))]
     M = 5
     l_c = 1 #meaningless here
 
     #find M indices whose distances is closest to q
-    i = sortperm(data[C]; by=(p->norm(p-q)))
+    i = sortperm(data[getproperty.(C,:idx)]; by=(p->norm(p-q)))
     @test C[i][1:M] == HNSW.select_neighbors(hnsw, q,C,M,l_c)
 
     #use a q index rather than point
     q = rand(1:100)
-    i = sortperm(data[C]; by=(p->norm(p-data[q])))
+    C = [HNSW.Neighbor(i, norm(data[q]-data[i])) for i ∈ unique(rand(1:100, 20))]
+    i = sortperm(data[getproperty.(C,:idx)]; by=(p->norm(p-data[q])))
     @test C[i][1:M] == HNSW.select_neighbors(hnsw, q,C,M,l_c)
 end
 
@@ -64,7 +64,7 @@ end
     for n = 1:10
         #Query Point
         q = rand(5)
-        labels = knn_search(hnsw, q, n, 20)
+        labels = getproperty.(knn_search(hnsw, q, n, 20), :idx)
         idxs = sortperm(data, by=(x->norm(x-q)))[1:n]
         @test labels == idxs
     end
