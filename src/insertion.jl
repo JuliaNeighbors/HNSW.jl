@@ -55,7 +55,6 @@ struct Neighbor{T}
 end
 
 #retrieve nearest element
-
 function nearest(A::Vector{Neighbor{T}}) where {T}
     buffer = Neighbor{T}(0,Inf)
     for a ∈ A
@@ -87,19 +86,13 @@ function delete_furthest!(W)
     return nothing
 end
 
-
 function set_neighbors!(layer, q, new_conn)
     for c ∈ collect(neighbors(layer, q))
         rem_edge!(layer, q, c)
     end
     add_neighbors!(layer, q, new_conn)
 end
-function set_neighbors!(layer, q::Neighbor, new_conn)
-    for c ∈ collect(neighbors(layer, q.idx))
-        rem_edge!(layer, q.idx, c)
-    end
-    add_neighbors!(layer, q.idx, new_conn)
-end
+set_neighbors!(layer, q::Neighbor, new_conn) = set_neighbors!(layer, q.idx, new_conn)
 
 function add_neighbors!(layer, q, new_conn::Vector{T}) where {T<:Number}
     for c ∈ new_conn
