@@ -4,6 +4,7 @@ using Distances
 
 export HierarchicalNSW
 export knn_search
+
 mutable struct HierarchicalNSW{T, V}
     mgraph::Vector{SimpleGraph{T}}
     data::V
@@ -15,6 +16,7 @@ mutable struct HierarchicalNSW{T, V}
     M::Int
     M_max0::Int
 end
+
 function HierarchicalNSW(data;
         metric=Euclidean(),
         indices=eachindex(data), #breaks for maximum(indices) > length(indices)
@@ -35,6 +37,7 @@ function HierarchicalNSW(data;
     return hnsw
 end
 
+
 get_enter_point(hnsw::HierarchicalNSW) = hnsw.ep
 set_enter_point!(hnsw::HierarchicalNSW, ep) = hnsw.ep = ep
 get_top_layer(hnsw::HierarchicalNSW) = length(hnsw.mgraph)
@@ -45,60 +48,42 @@ distance(hnsw::HierarchicalNSW, i, q::AbstractVector) = evaluate(hnsw.metric, hn
 distance(hnsw::HierarchicalNSW, q::AbstractVector, j) = evaluate(hnsw.metric, hnsw.data[j], q)
 
 add_layer!(hnsw::HierarchicalNSW{T}) where T = push!(hnsw.mgraph, SimpleGraph{T}(nv(hnsw.mgraph[1])))
+
+struct Neighbor{T}
+    idx::T
+    dist::Float64
+end
+
 #retrieve nearest element
-
-function nearest(
-        hnsw::HierarchicalNSW{T},
-        W, # list of candidates (indices)
-        q # query index
-        ) where {T}
-    buffer_idx = zero(T)
-    buffer_dist = Inf
-    for w ∈ W
-        dist = distance(hnsw,w,q)
-        if dist < buffer_dist
-            buffer_idx = w
-            buffer_dist = dist
+function nearest(A::Vector{Neighbor{T}}) where {T}
+    buffer = Neighbor{T}(0,Inf)
+    for a ∈ A
+        if a.dist < buffer.dist
+            buffer = a
         end
     end
-    return buffer_idx
+    return buffer
 end
-
-function extract_nearest!(hnsw, C, q)
-    c = nearest(hnsw, C, q)
-    deleteat!(C, findfirst(x -> x==c,C))
-    return c
-end
-
-#retrieve furthest element
-function get_furthest(
-        hnsw::HierarchicalNSW{T},
-        W, # list of candidates (indices)
-        q # query index
-        ) where {T}
-    buffer_idx = zero(T)
-    buffer_dist = 0.0
-    for w ∈ W
-        dist = distance(hnsw,w,q)
-        if dist >= buffer_dist
-            buffer_idx = w
-            buffer_dist = dist
+function furthest(A::Vector{Neighbor{T}}) where {T}
+    buffer = Neighbor{T}(0,0.0)
+    for a ∈ A
+        if a.dist > buffer.dist
+            buffer = a
         end
     end
-    return buffer_idx
+    return buffer
 end
 
-function delete_furthest!(hnsw::HierarchicalNSW{T},W,q) where {T}
-    idx = zero(T)
-    buffer_dist = 0.0
-    for (i,w) ∈ enumerate(W)
-        dist = distance(hnsw,w,q)
-        if dist >= buffer_dist
-            idx = i
-            buffer_dist = dist
-        end
-    end
-    deleteat!(W, idx)
+function extract_nearest!(W)
+    w = nearest(W)
+    deleteat!(W, findfirst(isequal(w),W))
+    w
+end
+
+function delete_furthest!(W)
+    w = furthest(W)
+    deleteat!(W, findfirst(isequal(w),W))
+    return nothing
 end
 
 function set_neighbors!(layer, q, new_conn)
@@ -107,11 +92,19 @@ function set_neighbors!(layer, q, new_conn)
     end
     add_neighbors!(layer, q, new_conn)
 end
-function add_neighbors!(layer, q, new_conn)
+set_neighbors!(layer, q::Neighbor, new_conn) = set_neighbors!(layer, q.idx, new_conn)
+
+function add_neighbors!(layer, q, new_conn::Vector{T}) where {T<:Number}
     for c ∈ new_conn
         add_edge!(layer, q, c)
     end
 end
+function add_neighbors!(layer, q, new_conn::Vector{Neighbor{T}}) where {T}
+    for c ∈ new_conn
+        add_edge!(layer, q, c.idx)
+    end
+end
+
 function insert_point!(
         hnsw::HierarchicalNSW{T}, #multilayer graph
         q, #new element (index)
@@ -119,33 +112,33 @@ function insert_point!(
         M_max, #max num of connections
         efConstruction, #size of dynamic candidate list
         m_L) where {T}# normalization factor for level generation
-    W = T[] #List of currently found neighbors
+    W = Neighbor{T}[] #List of currently found neighbors
     ep = get_enter_point(hnsw)
-    L =  get_top_layer(hnsw)  #level of ep , top layer of hnsw
+    epN = Neighbor(ep, distance(hnsw, ep, q))
+    L =  get_top_layer(hnsw)  #top layer of hnsw
     l = floor(Int, -log(rand())* m_L) + 1
+
     for l_c ∈ L+1:l #Is this correct?
         add_layer!(hnsw)
-        push!(W, search_layer(hnsw, q, ep, 1,l_c)[1])
-        ep = nearest(hnsw, W, q) #nearest element from q in W
+        push!(W, search_layer(hnsw, q, epN, 1,l_c)[1])
+        epN = nearest(W) #nearest element from q in W
     end
     for l_c ∈ min(L,l):-1:1
         layer = hnsw[l_c]
-        append!(W, search_layer(hnsw, q, ep, efConstruction, l_c))
+        append!(W, search_layer(hnsw, q, epN, efConstruction, l_c))
         neighbors_q = select_neighbors(hnsw, q, W, M, l_c) #alg 3 or 4
         add_neighbors!(layer, q, neighbors_q)
          #add connections from neighbors to q at layer l_c
 
-        for e ∈ neighbors_q #shrink connections if needed ????
-            eConn = neighbors(layer, e)
-            #shrink connections of e
-
+        for e ∈ neighbors_q #shrink connections if needed
+            eConn = neighbors(layer, e.idx)
             if length(eConn) > (M = l_c > 1 ? M_max : hnsw.M_max0)
                 # if l_c == 0 then M_max == M_max0
-                eNewConn = select_neighbors(hnsw, e, eConn, M, l_c) #alg 3 or 4
+                eNewConn = select_neighbors(hnsw, e.idx, eConn, M, l_c) #alg 3 or 4
                 set_neighbors!(layer, e, eNewConn) #set neighborhood(e) at layer l_c to eNewConn
             end
         end
-        ep = nearest(hnsw,W,q) #maybe ????
+        ep = nearest(W) #maybe ????
     end
     if l > L
         set_enter_point!(hnsw, q) #set enter point for hnsw to q
@@ -155,16 +148,27 @@ end
 
 #alg 3 # very naive implementation but works for now
 function select_neighbors(
-        hnsw,
-        q, # Query
-        C, # Candidate elements,
-        M, # number of neighbors to return
-        l_c)
+    hnsw,
+    q, # Query
+    C::Vector{T}, # Candidate elements,
+    M, # number of neighbors to return
+    l_c) where {T <: Number}
     if M > length(C)
         return C
     end
-    dists = [distance(hnsw, c, q) for c ∈ C]
-    i = sortperm(dists)
+    i = sortperm(C; by=(x->distance(hnsw,q,x)))
+    return C[i][1:M]
+end
+function select_neighbors(
+        hnsw,
+        q, # Query
+        C::Vector{Neighbor{T}}, # Candidate elements,
+        M, # number of neighbors to return
+        l_c) where {T <: Number}
+    if M > length(C)
+        return C
+    end
+    i = sortperm(C; by=(x->x.dist))
     return C[i][1:M]
 end
 
@@ -175,24 +179,25 @@ function search_layer(
         ef, # number of elements to return
         layer_num)
     layer = hnsw[layer_num]
-    v = [ep] #visited elements
+    v = [ep.idx] #visited elements
     C = [ep] #set of candidates
     W = [ep] #dynamic list of found nearest neighbors
     while length(C) > 0
-        c = extract_nearest!(hnsw, C, q) #extract nearest element from q in C
-        f = get_furthest(hnsw, W, q)
-        if distance(hnsw, c, q) > distance(hnsw, f, q)
+        c = extract_nearest!(C) # from q in C
+        f = furthest(W)
+        if c.dist > f.dist
             break # all elements in W are evaluated
         end
-        for e ∈ neighbors(layer, c)  #Update C and W
+        for e ∈ neighbors(layer, c.idx)  #Update C and W
             if e ∉ v
                 push!(v, e)
-                f = get_furthest(hnsw, W, q)
-                if distance(hnsw, e, q) < distance(hnsw, f, q) || length(W) < ef
-                    push!(C, e)
-                    push!(W, e)
+                eN = Neighbor(e, distance(hnsw,q,e))
+                f = furthest(W)
+                if eN.dist < f.dist || length(W) < ef
+                    push!(C, eN)
+                    push!(W, eN)
                     if length(W) > ef
-                        delete_furthest!(hnsw, W, q)
+                        delete_furthest!(W)
                     end
                 end
             end
@@ -208,15 +213,13 @@ function knn_search(
         K, #number of nearest neighbors to return
         ef # size of dynamic list
         ) where {T}
-    #W = T[] #set of current nearest elements
     ep = get_enter_point(hnsw)
+    ep = Neighbor(ep, distance(hnsw, q, ep))
     L = get_top_layer(hnsw) #layer of ep , top layer of hnsw
     for l_c ∈ L:-1:2 # Iterate from top to second lowest
-        #push!(W, search_layer(hnsw, q, ep, 1, l_c)[1])
-        #ep = nearest(hnsw, W, q)
-        ep = search_layer(hnsw, q, ep, 1, l_c)[1] #Seems to be what is done in code. different(?) from description maybe?
+        ep = search_layer(hnsw, q, ep, 1, l_c)[1]
+        #Seems to be what is done in code. different(?) from description maybe?
     end
-    #append!(W, search_layer(hnsw, q, ep, ef, 1))
     W = search_layer(hnsw, q, ep, ef, 1)
     return select_neighbors(hnsw, q, W, K,1)# K nearest elements to q
 end
