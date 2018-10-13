@@ -21,7 +21,7 @@ pop_nearest!(ns::NeighborSet) = Neighbor(popfirst!(ns.idx), popfirst!(ns.dist))
 pop_furthest!(ns::NeighborSet) = Neighbor(pop!(ns.idx), pop!(ns.dist))
 Base.length(ns::NeighborSet) = length(ns.idx)
 
-function insert!(ns::NeighborSet, idx::Integer, dist::Real)
+function Base.insert!(ns::NeighborSet, idx::Integer, dist::Real)
     for j = 1:length(ns)
         if ns.dist[j] > dist
             insert!(ns.dist, j, dist)
@@ -32,14 +32,14 @@ function insert!(ns::NeighborSet, idx::Integer, dist::Real)
     push!(ns.dist, dist)
     push!(ns.idx, idx)
 end
-function insert!(ns::NeighborSet, idx::Vector{<:Integer}, dist::Vector{<:Real})
+function Base.insert!(ns::NeighborSet, idx::AbstractVector{<:Integer}, dist::Vector{<:Real})
     for (i,d) in zip(idx, dist)
         insert!(ns,i,d)
     end
 end
-insert!(ns::NeighborSet, n::Neighbor) = insert!(ns, n.idx, n.dist)
-insert!(ns::NeighborSet, n::NeighborSet) = insert!(ns, n.idx, n.dist)
-insert!(ns::NeighborSet, n::Tuple{<:Integer,<:Real}) = insert!(ns, n[1], n[2])
+Base.insert!(ns::NeighborSet, n::Neighbor) = insert!(ns, n.idx, n.dist)
+Base.insert!(ns::NeighborSet, n::NeighborSet) = insert!(ns, n.idx, n.dist)
+Base.insert!(ns::NeighborSet, n::Tuple{<:Integer,<:Real}) = insert!(ns, n[1], n[2])
 
 function nearest(ns::NeighborSet, k)
     k = min(k, length(ns))
