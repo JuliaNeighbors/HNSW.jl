@@ -9,7 +9,7 @@ mutable struct HierarchicalNSW{T, TF, V <: AbstractVector{<:AbstractVector{TF}}}
     mgraph::Vector{SimpleGraph{T}}
     data::V
     ep::T
-    visited::Vector{Bool}
+    vlp::VisitedListPool
     metric::Metric
     m_L::Float64
     efConstruction::Float64 #size of dynamic candidate list
@@ -30,7 +30,7 @@ function HierarchicalNSW(data;
     mgraph = [SimpleGraph{T}(N)]
     ep = T(1)
     TF = eltype(data[1])
-    visited = Vector{Bool}(undef, N)
+    visited = VisitedListPool(1,N)
     hnsw = HierarchicalNSW{T,TF,typeof(data)}(mgraph, data,ep, visited, metric, m_L,efConstruction,indices,M,M_max0)
 
     for i ∈ indices
@@ -152,9 +152,8 @@ function search_layer(
         ef, # number of elements to return
         layer_num)
     layer = hnsw[layer_num]
-    visited = hnsw.visited
-    visited .= false
-    visited[ep.idx] = true #visited elements
+    vl = get_list(hnsw.vlp)
+    visit!(vl, ep.idx) #visited elements
     C = NeighborSet(ep) #set of candidates
     W = NeighborSet(ep) #dynamic list of found nearest neighbors
     while length(C) > 0
@@ -164,8 +163,8 @@ function search_layer(
             break # all elements in W are evaluated
         end
         for e ∈ neighbors(layer, c.idx)  #Update C and W
-            if visited[e]#e ∉ v
-                visited[e] = true#push!(v, e)
+            if !isvisited(vl, e)
+                visit!(vl, e)
                 eN = Neighbor(e, distance(hnsw,q,e))
                 f = furthest(W)
                 if eN.dist < f.dist || length(W) < ef
