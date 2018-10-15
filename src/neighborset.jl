@@ -22,7 +22,7 @@ pop_furthest!(ns::NeighborSet) = Neighbor(pop!(ns.idx), pop!(ns.dist))
 Base.length(ns::NeighborSet) = length(ns.idx)
 
 function Base.insert!(ns::NeighborSet, idx::Integer, dist::Real)
-    for j = 1:length(ns)
+    @inbounds for j = 1:length(ns)
         if ns.dist[j] > dist
             insert!(ns.dist, j, dist)
             insert!(ns.idx, j, idx)

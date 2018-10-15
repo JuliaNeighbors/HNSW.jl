@@ -3,9 +3,9 @@ mutable struct VisitedList
     visited_value::UInt8
 end
 
-VisitedList(num_elements) = VisitedList(Vector{UInt8}(fill(0,num_elements)),1)
+VisitedList(num_elements) = VisitedList(Vector{UInt8}(fill(UInt8(0),num_elements)),1)
 
-reset!(vl::VisitedList) = vl.visited_value +=1
+reset!(vl::VisitedList) = vl.visited_value += UInt8(1)
 isvisited(vl::VisitedList, idx) = vl.list[idx] == vl.visited_value
 visit!(vl::VisitedList, idx) = vl.list[idx] = vl.visited_value
 
