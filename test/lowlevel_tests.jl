@@ -12,18 +12,19 @@ using NearestNeighbors
         furthest_idx = findmax([norm(q-x) for x ∈ data])[2]
 
         #prepare candidates
-        cand = [HNSW.Neighbor(n, norm(q-data[n])) for n=1:100]
+        cand = HNSW.NeighborSet(1, norm(q-data[1]))
+        insert!(cand, 2:100, [norm(q-data[n]) for n=2:100])
         #nearest
         @test nearest_idx == HNSW.nearest(cand).idx
 
         #extract_nearest!
-        @test nearest_idx == HNSW.extract_nearest!(cand).idx
-        @test nearest_idx ∉ getproperty.(cand, :idx)
+        @test nearest_idx == HNSW.pop_nearest!(cand).idx
+        @test nearest_idx ∉ cand.idx
 
         #furthest
         @test furthest_idx == HNSW.furthest(cand).idx
-        HNSW.delete_furthest!(cand)
-        @test furthest_idx ∉ getproperty.(cand, :idx)
+        HNSW.pop_furthest!(cand)
+        @test furthest_idx ∉ cand.idx
     end
 end
 
@@ -43,13 +44,15 @@ end
     hnsw = HierarchicalNSW(data)
     #Query Point
     q = rand(5)
-    C = [HNSW.Neighbor(i, norm(q-data[i])) for i ∈ unique(rand(1:100, 20))]
+    C = HNSW.NeighborSet{Int32,Float64}()
+    for i ∈ unique(rand(1:100, 20))
+        insert!(C, HNSW.Neighbor(i, norm(q-data[i])))
+    end
     M = 5
     l_c = 1 #meaningless here
 
     #find M indices whose distances is closest to q
-    i = sortperm(data[getproperty.(C,:idx)]; by=(p->norm(p-q)))
-    @test C[i][1:M] == HNSW.select_neighbors(hnsw, q,C,M,l_c)
+    @test HNSW.nearest(C,M) == HNSW.select_neighbors(hnsw, q,C,M,l_c)
 
     #use a q index rather than point
     q = rand(1:100)
@@ -59,12 +62,12 @@ end
 end
 
 @testset "knn_search" begin
-    data = [rand(5) for i = 1:200]
+    data = [rand(5) for i = 1:2000]
     hnsw = HierarchicalNSW(data)
     for n = 1:10
         #Query Point
         q = rand(5)
-        labels = getproperty.(knn_search(hnsw, q, n, 20), :idx)
+        labels, = knn_search(hnsw, q, n, 20)
         idxs = sortperm(data, by=(x->norm(x-q)))[1:n]
         @test labels == idxs
     end

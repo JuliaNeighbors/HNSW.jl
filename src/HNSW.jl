@@ -1,5 +1,9 @@
 module HNSW
 
-greet() = print("Hello World!")
+    using LightGraphs
+    include("layered_graphs.jl")
+    include("neighborset.jl")
+    include("visited_lists.jl")
+
     include("insertion.jl")
 end # module
