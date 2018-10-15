@@ -7,8 +7,8 @@ SUITE["build hnsw"] = BenchmarkGroup()
 SUITE["knn"] = BenchmarkGroup()
 
 
-for dimension ∈ (1,10)
-    for points ∈ (100, 200)
+for dimension ∈ (1,10,100)
+    for points ∈ (1000,10000)
         data = [rand(dimension) for i=1:points]
         SUITE["build hnsw"]["dim=$dimension, points=$points"] = @benchmarkable HierarchicalNSW($data)
         hnsw = HierarchicalNSW(data)
