@@ -42,7 +42,6 @@ end
 get_enter_point(hnsw::HierarchicalNSW) = hnsw.ep
 set_enter_point!(hnsw::HierarchicalNSW, ep) = hnsw.ep = ep
 get_top_layer(hnsw::HierarchicalNSW) = length(hnsw.lgraph)
-#Base.getindex(hnsw::HierarchicalNSW, i) = hnsw.lgraph[i]
 get_random_level(hnsw) = floor(Int, -log(rand())* hnsw.m_L) + 1
 
 distance(hnsw::HierarchicalNSW, i, j) = @inbounds evaluate(hnsw.metric, hnsw.data[i], hnsw.data[j])
@@ -55,7 +54,6 @@ function insert_point!(
         q, #new element (index)
         #M, #number of established connections
         ) where {T,TF}# normalization factor for level generation
-    #W = NeighborSet{T,TF}() #Set of currently found neighbors
     ep = get_enter_point(hnsw)
     epN = Neighbor(ep, distance(hnsw, ep, q))
     L =  get_top_layer(hnsw)  #top layer of hnsw
@@ -63,27 +61,12 @@ function insert_point!(
 
     for l_c ∈ L+1:l #Is this correct?
         add_layer!(hnsw.lgraph)
-        #insert!(W, search_layer(hnsw, q, epN, 1,l_c))
         W = search_layer(hnsw, q, epN, 1,l_c)
         epN = nearest(W) #nearest element from q in W
     end
     for l_c ∈ min(L,l):-1:1
-        #insert!(W, search_layer(hnsw, q, epN, hnsw.efConstruction, l_c))
         W = search_layer(hnsw, q, epN, hnsw.efConstruction, l_c)
         add_connections!(hnsw, l_c, q, W)
-        #neighbors_q = select_neighbors(hnsw, q, W, M, l_c) #alg 3 or 4
-        # neighbors_q = nearest(W, hnsw.maxM)[1] #alg 3 or 4 for now #possibly maxM0
-        # add_neighbors!(layer, q, neighbors_q)
-        #  #add connections from neighbors to q at layer l_c
-        #
-        # for e ∈ neighbors_q #shrink connections if needed
-        #     eConn = neighbors(layer,e)
-        #     if length(eConn) > (M = l_c > 1 ? hnsw.maxM : hnsw.maxM0)
-        #         # if l_c == 0 then maxM == maxM0
-        #         eNewConn = select_neighbors(hnsw, e, eConn, M, l_c) #alg 3 or 4
-        #         set_neighbors!(layer, e, eNewConn) #set neighborhood(e) at layer l_c to eNewConn
-        #     end
-        # end
         ep = nearest(W) #maybe ????
     end
     if l > L
@@ -102,25 +85,9 @@ function select_neighbors(
     if M > length(C)
         return C
     end
-    #dists = [ distance(hnsw,q,x) for x in C]
-    #i = sortperm(dists)
     i = sortperm(C; by=(x->distance(hnsw,q,x)))
-    #sort!(C; by=(x->distance(hnsw,q,x)))
     return C[i][1:M]
 end
-# function select_neighbors(
-#         hnsw,
-#         q, # Query
-#         C::Vector{Neighbor{T,TF}}, # Candidate elements,
-#         M, # number of neighbors to return
-#         l_c) where {T, TF}
-#     if M > length(C)
-#         return C
-#     end
-#     i = sortperm(C; by=(x->x.dist))
-#     return C[i][1:M]
-# end
-
 
 function search_layer(
         hnsw,
@@ -129,7 +96,6 @@ function search_layer(
         ef, # number of elements to return
         level)
     lg = hnsw.lgraph
-    #layer = hnsw[layer_num]
     vl = get_list(hnsw.vlp)
     visit!(vl, ep.idx) #visited elements
     C = NeighborSet(ep) #set of candidates
@@ -257,25 +223,3 @@ function select_neighbors_heuristic(
     end
     return R
 end
-
-
-
-#
-# function set_neighbors!(layer, q, new_conn)
-#     for c ∈ collect(neighbors(layer, q))
-#         rem_edge!(layer, q, c)
-#     end
-#     add_neighbors!(layer, q, new_conn)
-# end
-# set_neighbors!(layer, q::Neighbor, new_conn) = set_neighbors!(layer, q.idx, new_conn)
-#
-# function add_neighbors!(layer, q, new_conn::Vector{<:Integer})
-#     for c ∈ new_conn
-#         add_edge!(layer, q, c)
-#     end
-# end
-# function add_neighbors!(layer, q, new_conn::Vector{<:Neighbor})
-#     for c ∈ new_conn
-#         add_edge!(layer, q, c.idx)
-#     end
-# end
