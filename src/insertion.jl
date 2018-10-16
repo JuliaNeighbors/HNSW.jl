@@ -109,7 +109,8 @@ function search_layer(
         for e ∈ neighbors(lg, level, c.idx)  #Update C and W
             if !isvisited(vl, e)
                 visit!(vl, e)
-                eN = Neighbor(e, distance(hnsw,q,e))
+                dist =  distance(hnsw,q,e)
+                eN = Neighbor(e, dist)
                 f = furthest(W)
                 if eN.dist < f.dist || length(W) < ef
                     insert!(C, eN)
@@ -142,7 +143,10 @@ function knn_search(
         #Seems to be what is done in code. different(?) from description maybe?
     end
     W = search_layer(hnsw, q, ep, ef, 1)
-    return nearest(W, K)# K nearest elements to q
+    list = nearest(W, K)
+    idx = map(x->x.idx, list)
+    dist = map(x->x.dist, list)
+    return idx, dist# K nearest elements to q
 end
 
 function knn_search(hnsw::HierarchicalNSW{T,TF}, #multilayer graph
@@ -162,25 +166,26 @@ function add_connections!(hnsw, level, q, candidates::NeighborSet)
     lg = hnsw.lgraph
     maxM = max_connections(lg, level)
     #get M neighbors by heuristic ?
-    selected_neighbors, = nearest(candidates, maxM)
+    selected_neighbors = nearest(candidates, maxM)
 
     for n in selected_neighbors
         #Danger! SimpleDiGraph also mutates a list of "incoming" links
-        add_edge!(lg, level, q, n)
+        add_edge!(lg, level, q, n.idx)
     end
 
     for n in selected_neighbors
         #lock() linklist of n here
-        if length(neighbors(lg, level, n)) < maxM
-            add_edge!(lg, level, n, q)
+        if length(neighbors(lg, level, n.idx)) < maxM
+            add_edge!(lg, level, n.idx, q)
         else
             #remove weakest link and replace it
-            candidates = NeighborSet(n, distance(hnsw, q,n))
-            for c in neighbors(lg, level, n)
-                insert!(candidates, c, distance(hnsw, n, c))
+            candidates = NeighborSet(n)
+            for c in neighbors(lg, level, n.idx)
+                dist = distance(hnsw, n.idx, c)
+                insert!(candidates, c, dist)
             end
-            rem_edge!(lg, level, n, furthest(candidates).idx)
-            add_edge!(lg, level, n, nearest(candidates).idx)
+            rem_edge!(lg, level, n.idx, furthest(candidates).idx)
+            add_edge!(lg, level, n.idx, nearest(candidates).idx)
         end
         #unlock here
     end
