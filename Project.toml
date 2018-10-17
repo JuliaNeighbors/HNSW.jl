@@ -1,4 +1,4 @@
-name = "HNSW"
+name = "ApproximateNearestNeighbors"
 uuid = "540f64fa-c57e-11e8-081c-41422cda4629"
 authors = ["Jonas Isensee <jonas.isensee@web.de>"]
 version = "0.1.0"

@@ -4,8 +4,7 @@ function LinkList{T}(num_elements::Int) where {T}
     fill(Vector{T}[], num_elements)
 end
 mutable struct LayeredGraph{T}
-    linklist::LinkList{T}
-    #linklist[index][layer][link]
+    linklist::LinkList{T}    #linklist[index][level][link]
     numlayers::Int
     maxM0::Int
     maxM::Int
@@ -18,18 +17,16 @@ LayeredGraph{T}(num_elements::Int, maxM, maxM0) where {T} =
 Base.length(lg::LayeredGraph) = lg.numlayers
 get_top_layer(lg::LayeredGraph) = lg.numlayers
 
-# add_layer!(lg::LayeredGraph{T}) where {T} =
-#     push!(lg.layer, SimpleDiGraph{T}(nv(lg.layer[1])))
-
 function add_vertex!(lg::LayeredGraph{T}, i, level) where {T}
+    #TODO: possibly add sizehint!() here
     lg.linklist[i] = [T[] for i=1:level]
     lg.numlayers > level || (lg.numlayers = level)
     return nothing
 end
 function add_edge!(lg::LayeredGraph, level, source, target)
-    @assert level <= levelof(lg, source)
-    @assert level <= levelof(lg, target)
-    @assert source != target
+    #@assert level <= levelof(lg, source)
+    #@assert level <= levelof(lg, target)
+    #@assert source != target
     push!(lg.linklist[source][level],  target)
 end
 

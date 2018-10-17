@@ -1,4 +1,4 @@
-using HNSW
+using ApproximateNearestNeighbors
 using BenchmarkTools
 using FileIO
 
