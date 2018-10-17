@@ -20,18 +20,26 @@ function HierarchicalNSW(data;
         maxM = M,
         maxM0 = 2M,
         m_L = 1/log(M),
-        efConstruction = 100)
+        efConstruction = 100,
+        threaded=false)
     N = maximum(indices)
     T = N <= typemax(UInt32) ? UInt32 : UInt64
     lgraph = LayeredGraph{T}(N, maxM0,maxM)
     ep = T(0)
     TF = eltype(data[1])
     visited = VisitedListPool(1,N)
-    hnsw = HierarchicalNSW{T,TF,typeof(data),typeof(metric)}(lgraph, data,ep, visited, metric, m_L,efConstruction,indices)
+    hnsw = HierarchicalNSW{T,TF,typeof(data),typeof(metric)}(lgraph, data,ep,Mutex(), visited, metric, m_L,efConstruction,indices)
 
-    for i ∈ indices
-        level = get_random_level(hnsw)
-        insert_point!(hnsw, i, level)
+    levels = [get_random_level(hnsw) for i ∈ 1:maximum(indices)]
+    if threaded == true
+        println("multithreaded")
+        Threads.@threads for i ∈ 1:maximum(indices)#indices
+            insert_point!(hnsw, i, levels[i])
+        end
+    else
+        for i ∈ 1:maximum(indices)#indices
+            insert_point!(hnsw, i, levels[i])
+        end
     end
     return hnsw
 end
@@ -54,13 +62,16 @@ function insert_point!(
         #M, #number of established connections
         ) where {T,TF}# normalization factor for level generation
 
-    ep = get_enter_point(hnsw)
-    L =  get_top_layer(hnsw)  #top layer of hnsw
-    add_vertex!(hnsw.lgraph, q, l)
-    if ep == 0 #this needs to be locked
-        set_enter_point!(hnsw, q)
-        return nothing
-    end
+    lock(hnsw.ep_lock)
+        ep = get_enter_point(hnsw)
+        L =  get_top_layer(hnsw)  #top layer of hnsw
+        add_vertex!(hnsw.lgraph, q, l)
+        if ep == 0 #this needs to be locked
+            set_enter_point!(hnsw, q)
+            unlock(hnsw.ep_lock)
+            return nothing
+        end
+    unlock(hnsw.ep_lock)
     epN = Neighbor(ep, distance(hnsw, ep, q))
     for level ∈ L:-1:l+1
         W = search_layer(hnsw, q, epN, 1,level)
@@ -100,7 +111,7 @@ function search_layer(
     lg = hnsw.lgraph
     vl = get_list(hnsw.vlp)
     visit!(vl, ep.idx) #visited elements
-    @assert level <= levelof(lg,ep.idx)
+    #@assert level <= levelof(lg,ep.idx)
     C = NeighborSet(ep) #set of candidates
     W = NeighborSet(ep) #dynamic list of found nearest neighbors
     while length(C) > 0
@@ -108,21 +119,23 @@ function search_layer(
         if c.dist > furthest(W).dist
             break # all elements in W are evaluated
         end
-        for e ∈ neighbors(lg, c.idx, level)  #Update C and W
-            if !isvisited(vl, e)
-                visit!(vl, e)
-                dist =  distance(hnsw,q,e)
-                eN = Neighbor(e, dist)
-                f = furthest(W)
-                if eN.dist < f.dist || length(W) < ef
-                    insert!(C, eN)
-                    insert!(W, eN)
-                    if length(W) > ef
-                        pop_furthest!(W)
+        lock(lg.locklist[c.idx])
+            for e ∈ neighbors(lg, c.idx, level)  #Update C and W
+                if !isvisited(vl, e)
+                    visit!(vl, e)
+                    dist =  distance(hnsw,q,e)
+                    eN = Neighbor(e, dist)
+                    f = furthest(W)
+                    if eN.dist < f.dist || length(W) < ef
+                        insert!(C, eN)
+                        insert!(W, eN)
+                        if length(W) > ef
+                            pop_furthest!(W)
+                        end
                     end
                 end
             end
-        end
+        unlock(lg.locklist[c.idx])
     end
     release_list(hnsw.vlp, vl)
     return W #ef closest neighbors
@@ -164,47 +177,9 @@ function knn_search(hnsw::HierarchicalNSW{T,TF}, #multilayer graph
     idxs, dists
 end
 
-function add_connections!(hnsw, level, q, candidates::NeighborSet)
-    lg = hnsw.lgraph
-    maxM = max_connections(lg, level)
-    #get M neighbors by heuristic ?
-    selected_neighbors = nearest(candidates, maxM)
-    #set neighbors
-    lg.linklist[q][level] = [n.idx for n in selected_neighbors]
 
-    # if unique(lg.linklist[q][level]) != lg.linklist[q][level]
-    #     error("non-unique candidates")
-    # end
-    # for el in neighbors(lg, q, level)
-    #     @assert levelof(lg,el) >= level
-    # end
 
-    for n in selected_neighbors
-        qN = Neighbor(q, n.dist)
-        #check levels
-        @assert level <= levelof(lg, n.idx)
-        @assert level <= levelof(lg, qN.idx)
-        #lock() linklist of n here
-        #if n.idx ∉ neighbors(lg, n.idx,level)
-        if length(neighbors(lg, n.idx, level)) < maxM
-            add_edge!(lg, level, n.idx, qN.idx)
-        else
-            #remove weakest link and replace it
-            weakest_link = qN # dist to q
-            for c in neighbors(lg, n.idx, level)
-                dist = distance(hnsw, n.idx, c)
-                if weakest_link.dist < dist
-                    weakest_link = Neighbor(c, dist)
-                end
-            end
-            if weakest_link.dist > qN.dist
-                rem_edge!(lg, level, n.idx, weakest_link.idx)
-                add_edge!(lg, level, n.idx, qN.idx)
-            end
-        end
-        #unlock here
-    end
-end
+
 
 #alg 4
 function select_neighbors_heuristic(
