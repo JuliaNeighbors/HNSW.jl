@@ -5,7 +5,13 @@ end
 
 VisitedList(num_elements) = VisitedList(Vector{UInt8}(fill(UInt8(0),num_elements)),1)
 
-reset!(vl::VisitedList) = vl.visited_value += UInt8(1)
+function reset!(vl::VisitedList)
+    vl.visited_value += UInt8(1)
+    if vl.visited_value == 0
+        vl.list .= UInt8(0)
+        vl.visited_value += UInt8(1)
+    end
+end
 isvisited(vl::VisitedList, idx) = vl.list[idx] == vl.visited_value
 visit!(vl::VisitedList, idx) = vl.list[idx] = vl.visited_value
 

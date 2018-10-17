@@ -23,18 +23,20 @@ pop_furthest!(ns::NeighborSet) = pop!(ns.neighbor)
 Base.length(ns::NeighborSet) = length(ns.neighbor)
 
 function Base.insert!(ns::NeighborSet, n::Neighbor)
-    @inbounds for j = 1:length(ns)
+    @inbounds for j = length(ns):-1:1
         if ns[j].dist > n.dist
             insert!(ns.neighbor, j, n)
             return nothing
         end
     end
     push!(ns.neighbor, n)
+    return nothing
 end
 function Base.insert!(ns::NeighborSet, vn::Vector{Neighbor})
     for n in vn
         insert!(ns,n)
     end
+    return nothing
 end
 Base.insert!(ns::NeighborSet, n::NeighborSet) = insert!(ns, n.neighbor)
 Base.insert!(ns::NeighborSet, idx, dist) = insert!(ns, Neighbor(idx,dist))
