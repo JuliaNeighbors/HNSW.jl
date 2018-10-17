@@ -26,14 +26,15 @@ function HierarchicalNSW(data;
         efConstruction = 100)
     N = maximum(indices)
     T = N <= typemax(UInt32) ? UInt32 : UInt64
-    lgraph = LayeredGraph{T}(N, maxM,maxM0)
-    ep = T(1)
+    lgraph = LayeredGraph{T}(N, maxM0,maxM)
+    ep = T(0)
     TF = eltype(data[1])
     visited = VisitedListPool(1,N)
     hnsw = HierarchicalNSW{T,TF,typeof(data),typeof(metric)}(lgraph, data,ep, visited, metric, m_L,efConstruction,indices)
 
     for i ∈ indices
-        insert_point!(hnsw, i)
+        level = get_random_level(hnsw)
+        insert_point!(hnsw, i, level)
     end
     return hnsw
 end
@@ -52,22 +53,26 @@ distance(hnsw::HierarchicalNSW, q::AbstractVector, j) = @inbounds evaluate(hnsw.
 function insert_point!(
         hnsw::HierarchicalNSW{T,TF}, #multilayer graph
         q, #new element (index)
+        l = get_random_level(hnsw)
         #M, #number of established connections
         ) where {T,TF}# normalization factor for level generation
-    ep = get_enter_point(hnsw)
-    epN = Neighbor(ep, distance(hnsw, ep, q))
-    L =  get_top_layer(hnsw)  #top layer of hnsw
-    l = get_random_level(hnsw)
 
-    for l_c ∈ L+1:l #Is this correct?
-        add_layer!(hnsw.lgraph)
-        W = search_layer(hnsw, q, epN, 1,l_c)
+    ep = get_enter_point(hnsw)
+    L =  get_top_layer(hnsw)  #top layer of hnsw
+    add_vertex!(hnsw.lgraph, q, l)
+    if ep == 0 #this needs to be locked
+        set_enter_point!(hnsw, q)
+        return nothing
+    end
+    epN = Neighbor(ep, distance(hnsw, ep, q))
+    for level ∈ L:-1:l+1
+        W = search_layer(hnsw, q, epN, 1,level)
         epN = nearest(W) #nearest element from q in W
     end
-    for l_c ∈ min(L,l):-1:1
-        W = search_layer(hnsw, q, epN, hnsw.efConstruction, l_c)
-        add_connections!(hnsw, l_c, q, W)
-        ep = nearest(W) #maybe ????
+    for level ∈ min(L,l):-1:1
+        W = search_layer(hnsw, q, epN, hnsw.efConstruction, level)
+        add_connections!(hnsw, level, q, W)
+        epN = nearest(W)
     end
     if l > L
         set_enter_point!(hnsw, q) #set enter point for hnsw to q
@@ -98,15 +103,15 @@ function search_layer(
     lg = hnsw.lgraph
     vl = get_list(hnsw.vlp)
     visit!(vl, ep.idx) #visited elements
+    @assert level <= levelof(lg,ep.idx)
     C = NeighborSet(ep) #set of candidates
     W = NeighborSet(ep) #dynamic list of found nearest neighbors
     while length(C) > 0
         c = pop_nearest!(C) # from q in C
-        f = furthest(W)
-        if c.dist > f.dist
+        if c.dist > furthest(W).dist
             break # all elements in W are evaluated
         end
-        for e ∈ neighbors(lg, level, c.idx)  #Update C and W
+        for e ∈ neighbors(lg, c.idx, level)  #Update C and W
             if !isvisited(vl, e)
                 visit!(vl, e)
                 dist =  distance(hnsw,q,e)
@@ -167,25 +172,38 @@ function add_connections!(hnsw, level, q, candidates::NeighborSet)
     maxM = max_connections(lg, level)
     #get M neighbors by heuristic ?
     selected_neighbors = nearest(candidates, maxM)
+    #set neighbors
+    lg.linklist[q][level] = [n.idx for n in selected_neighbors]
+
+    # if unique(lg.linklist[q][level]) != lg.linklist[q][level]
+    #     error("non-unique candidates")
+    # end
+    # for el in neighbors(lg, q, level)
+    #     @assert levelof(lg,el) >= level
+    # end
 
     for n in selected_neighbors
-        #Danger! SimpleDiGraph also mutates a list of "incoming" links
-        add_edge!(lg, level, q, n.idx)
-    end
-
-    for n in selected_neighbors
+        qN = Neighbor(q, n.dist)
+        #check levels
+        @assert level <= levelof(lg, n.idx)
+        @assert level <= levelof(lg, qN.idx)
         #lock() linklist of n here
-        if length(neighbors(lg, level, n.idx)) < maxM
-            add_edge!(lg, level, n.idx, q)
+        #if n.idx ∉ neighbors(lg, n.idx,level)
+        if length(neighbors(lg, n.idx, level)) < maxM
+            add_edge!(lg, level, n.idx, qN.idx)
         else
             #remove weakest link and replace it
-            candidates = NeighborSet(n)
-            for c in neighbors(lg, level, n.idx)
+            weakest_link = qN # dist to q
+            for c in neighbors(lg, n.idx, level)
                 dist = distance(hnsw, n.idx, c)
-                insert!(candidates, c, dist)
+                if weakest_link.dist < dist
+                    weakest_link = Neighbor(c, dist)
+                end
             end
-            rem_edge!(lg, level, n.idx, furthest(candidates).idx)
-            add_edge!(lg, level, n.idx, nearest(candidates).idx)
+            if weakest_link.dist > qN.dist
+                rem_edge!(lg, level, n.idx, weakest_link.idx)
+                add_edge!(lg, level, n.idx, qN.idx)
+            end
         end
         #unlock here
     end
