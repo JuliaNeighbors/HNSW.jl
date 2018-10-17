@@ -1,7 +1,3 @@
-using LinearAlgebra
-using LightGraphs
-using Distances
-
 export HierarchicalNSW
 export knn_search
 
@@ -9,6 +5,7 @@ mutable struct HierarchicalNSW{T, TF, V <: AbstractVector{<:AbstractVector{TF}},
     lgraph::LayeredGraph{T}#Vector{SimpleGraph{T}}
     data::V
     ep::T
+    ep_lock::Mutex
     vlp::VisitedListPool
     metric::M#Metric
     m_L::Float64
