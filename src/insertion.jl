@@ -85,8 +85,9 @@ function insert_point!(
         #println("inserting $q on layer $level")
         #println("enterpoint is $epN")
         W = search_layer(hnsw, q, epN, hnsw.efConstruction, level)
-        #println("adding connections to $q : $(W.neighbor)")
+        W = neighbor_heuristic(hnsw, level, W)
         add_connections!(hnsw, level, q, W)
+        #println("adding connections to $q : $(W.neighbor)")
         #println("resulting connections")
         #println(hnsw.lgraph.linklist)
         epN = nearest(W)
@@ -106,12 +107,10 @@ function search_layer(
     lg = hnsw.lgraph
     vl = get_list(hnsw.vlp)
     visit!(vl, ep) #visited elements
-    #@assert level <= levelof(lg,ep.idx)
     C = NeighborSet(ep) #set of candidates
     W = NeighborSet(ep) #dynamic list of found nearest neighbors
     while length(C) > 0
         c = pop_nearest!(C) # from q in C
-        #c.dist < furthest(W).dist && break#why is this?  # all elements in W are evaluated
         if c.dist > furthest(W).dist
             break
             #This is the stopping condition.
@@ -159,7 +158,7 @@ function knn_search(
     L = get_top_layer(hnsw) #layer of ep , top layer of hnsw
     for l_c ∈ L:-1:2 # Iterate from top to second lowest
         ep = search_layer(hnsw, q, ep, 1, l_c)[1]
-        #Seems to be what is done in code. different(?) from description maybe?
+        #TODO: better upper layer implementation here as well
     end
     W = search_layer(hnsw, q, ep, ef, 1)
     list = nearest(W, K)
@@ -182,59 +181,34 @@ function knn_search(hnsw::HierarchicalNSW{T,TF}, #multilayer graph
     idxs, dists
 end
 
-
-
-
-
-
-#alg 3 # very naive implementation but works for now
-function select_neighbors(
-    hnsw,
-    q, # Query
-    C::Vector{T}, # Candidate elements,
-    M, # number of neighbors to return
-    l_c) where {T <: Number}
-    if M > length(C)
-        return C
-    end
-    i = sortperm(C; by=(x->distance(hnsw,q,x)))
-    return C[i][1:M]
-end
-
-#alg 4
-function select_neighbors_heuristic(
+function neighbor_heuristic(
         hnsw,
-        q, # base element
-        C, # candidate elements
-        M, # number of neighbors to return,
-        l_c, # layer number
-        extendCandidates::Bool, # whether or not to extend candidate list
-        keepPrunedConnections::Bool) #whether to add discarded elements
+        level,
+        W) # candidate elements
+    M = max_connections(hnsw.lgraph, level)
+    if length(W) <= M return W end
+    R = typeof(W)() #Selected Neighbors
+    W_d = typeof(W)() #Temporarily discarded candidates
 
-    R = []
-    W = copy(C) # working queue for the candidates
-    if extendCandidates # Extend candidates by their neighbors
-        for e ∈ C
-            for e_adj ∈ neighbors(layer, e) #at layer l_c
-                if e_adj ∉ W
-                    push!(W, e_adj)
-                end
+    for e ∈ W.neighbor
+        if length(R) >= M break end
+        #Compute distances to already selected points
+        good = true
+        for r ∈ R.neighbor
+            if e.dist > distance(hnsw, e.idx, r.idx)
+                good=false
+                break
             end
         end
-    end
-    W_d = [] #queue for the discarded candidates
-    while length(W) > 0 && length(R) < M
-        e = extract_nearest!(hnsw, W, q)
-        if distance(hnsw, e, q) < minimum(distance(hnsw, q, nearest(hnsw, q, R)))#e is closer to q compared to any element from R
-            push!(R, e)
+        if good#e is closer to q compared to any element from R
+            insert!(R, e) # I know it comes first. Possible Op. `pushfirst!`
         else
-            push!(W_d, e)
+            insert!(W_d, e)
         end
     end
-    if keepPrunedConnections
-        while length(W_d) > 0 && length(R) < M
-            push!(R, extract_nearest!(W_d), q)
-        end
+    for w ∈ W_d.neighbor
+        if length(R) >= M break end
+        insert!(R, w)
     end
     return R
 end
