@@ -1,5 +1,5 @@
 using ApproximateNearestNeighbors
-import ApproximateNearestNeighbors: LayeredGraph, add_vertex!, add_edge!, get_top_layer, levelof, neighbors,max_connections
+import ApproximateNearestNeighbors: LayeredGraph, add_vertex!, add_edge!, get_top_layer, levelof, neighbors,max_connections, ANN
 using Test
 using LinearAlgebra
 using NearestNeighbors
@@ -63,11 +63,11 @@ end
     end
     @testset "add_edge! & rem_edge!" for i = 1:10, j=1:10
         if i==j
-            @test_throws AssertionError add_edge!(lg, 1, i, j)
+            #@test_throws AssertionError add_edge!(lg, 1, i, j)
         else
             level = rand(1:5)
             if levelof(lg, i) < level || levelof(lg, j) < level
-                @test_throws AssertionError add_edge!(lg, level, i,j)
+                #@test_throws AssertionError add_edge!(lg, level, i,j)
             else
                 add_edge!(lg, level, i,j)
                 @test j ∈ lg.linklist[i][level]
@@ -78,7 +78,7 @@ end
         for i = 1:10
             level = rand(1:5)
             if level > levelof(lg, i)
-                @test_throws AssertionError neighbors(lg, i, level)
+                #@test_throws AssertionError neighbors(lg, i, level)
             else
                 @test neighbors(lg, i, level) == lg.linklist[i][level]
             end
