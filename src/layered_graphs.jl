@@ -41,11 +41,8 @@ end
 
 max_connections(lg::LayeredGraph, level) = level==1 ? lg.maxM0 : lg.maxM
 
-function neighbors(lg::LayeredGraph, q, level)
-    #@assert lg.numlayers >= level "level=$level > $(lg.numlayers)"
-    #@assert levelof(lg, q) >= level
-    lg.linklist[q][level]
-end
+neighbors(lg::LayeredGraph, level, q::Integer) = lg.linklist[q][level]
+neighbors(lg::LayeredGraph, level, q::Neighbor) = lg.linklist[q.idx][level]
 
 levelof(lg::LayeredGraph, q) = length(lg.linklist[q])
 
@@ -70,12 +67,12 @@ function add_connections!(hnsw, level, q, selected::NeighborSet)
         #@assert level <= levelof(lg, n.idx)
         #@assert level <= levelof(lg, qN.idx)
         lock(lg.locklist[n.idx]) #lock() linklist of n here
-            if length(neighbors(lg, n.idx, level)) < maxM
-                add_edge!(lg, level, n.idx, qN.idx)
+            if length(neighbors(lg, level, n)) < maxM
+                add_edge!(lg, level, n, qN)
             else
                 #remove weakest link and replace it
                 weakest_link = qN # dist to q
-                for c in neighbors(lg, n.idx, level)
+                for c in neighbors(lg, level, n)
                     dist = distance(hnsw, n.idx, c)
                     if weakest_link.dist < dist
                         weakest_link = Neighbor(c, dist)

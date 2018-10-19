@@ -123,7 +123,7 @@ function search_layer(
             # closer to q that have not been visited
         end
         lock(lg.locklist[c.idx])
-            for e ∈ neighbors(lg, c.idx, level)  #Update C and W
+            for e ∈ neighbors(lg, level, c)  #Update C and W
                 if !isvisited(vl, e)
                     visit!(vl, e)
                     dist =  distance(hnsw,q,e)

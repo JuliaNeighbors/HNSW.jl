@@ -80,7 +80,7 @@ end
             if level > levelof(lg, i)
                 #@test_throws AssertionError neighbors(lg, i, level)
             else
-                @test neighbors(lg, i, level) == lg.linklist[i][level]
+                @test neighbors(lg, level, i) == lg.linklist[i][level]
             end
         end
     end
