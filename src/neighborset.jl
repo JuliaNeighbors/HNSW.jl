@@ -1,3 +1,7 @@
+export Neighbor
+export NeighborSet
+
+
 struct Neighbor{T, F}
     idx::T
     dist::F

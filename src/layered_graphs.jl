@@ -14,19 +14,17 @@ end
 
 
 LayeredGraph{T}(num_elements::Int, M, M0, m_L) where {T} =
-    LayeredGraph{T}(LinkList{T}(num_elements),
-    [Mutex() for i=1:num_elements],0,M,M0,m_L)
-
+    LayeredGraph{T}(LinkList{T}(num_elements), [Mutex() for i=1:num_elements],0,M,M0,m_L)
 Base.length(lg::LayeredGraph) = lg.numlayers
 get_top_layer(lg::LayeredGraph) = lg.numlayers
 get_random_level(lg) = floor(Int, -log(rand())* lg.m_L) + 1
 
 function add_vertex!(lg::LayeredGraph{T}, i, level) where {T}
-    #TODO: possibly add sizehint!() here
     lg.linklist[i] = [T[] for i=1:level]
     lg.numlayers > level || (lg.numlayers = level)
     return nothing
 end
+
 function add_edge!(lg::LayeredGraph, level, source::Integer, target::Integer)
     push!(lg.linklist[source][level],  target)
 end
@@ -56,14 +54,6 @@ function add_connections!(hnsw, level, q, W::NeighborSet)
     M = max_connections(lg, level)
     #set neighbors
     lg.linklist[q][level] = [n.idx for n in W]
-
-    # if unique(lg.linklist[q][level]) != lg.linklist[q][level]
-    #     error("non-unique candidates")
-    # end
-    # for el in neighbors(lg, q, level)
-    #     @assert levelof(lg,el) >= level
-    # end
-
     for n in W
         qN = Neighbor(q, n.dist)
         lock(lg.locklist[n.idx]) #lock() linklist of n here

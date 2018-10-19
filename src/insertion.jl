@@ -1,46 +1,4 @@
-export HierarchicalNSW
-export add_to_graph!, set_ef!
 export knn_search
-export Neighbor
-export NeighborSet
-mutable struct HierarchicalNSW{T, TF, V <: AbstractVector{<:AbstractVector{TF}}, M}
-    lgraph::LayeredGraph{T}
-    data::V
-    ep::T
-    ep_lock::Mutex
-    vlp::VisitedListPool
-    metric::M
-    efConstruction::Int #size of dynamic candidate list
-    ef::Int
-end
-
-function HierarchicalNSW(data;
-        metric=Euclidean(),
-        M = 10, #5 to 48
-        M0 = 2M,
-        m_L = 1/log(M),
-        efConstruction = 100,
-        ef = 10,
-        max_elements=length(data))
-    T = max_elements <= typemax(UInt32) ? UInt32 : UInt64
-    lg = LayeredGraph{T}(max_elements, M0, M, m_L)
-    ep = T(0)
-    F = eltype(data[1])
-    vlp = VisitedListPool(1,max_elements)
-    return HierarchicalNSW{T,F,typeof(data),typeof(metric)}(
-        lg, data, ep, Mutex(), vlp, metric, efConstruction, ef)
-end
-
-function Base.show(io::IO, hnsw::HierarchicalNSW)
-    lg = hnsw.lgraph
-    println(io, "Hierarchical Navigable Small World with $(get_top_layer(lg)) layers")
-    for i = get_top_layer(lg):-1:1
-        nodes = count(x->length(x)>=i, lg.linklist)
-        λ = x -> length(x)>=i ? length(x[i]) : 0
-        edges = sum(map(λ, lg.linklist))
-        println(io, "Layer $i has $(nodes) nodes and $edges edges")
-    end
-end
 
 function add_to_graph!(hnsw, indices, multithreading=false)
     #Does not check if index has already been added
@@ -58,27 +16,12 @@ function add_to_graph!(hnsw, indices, multithreading=false)
 end
 add_to_graph!(hnsw::HierarchicalNSW) = add_to_graph!(hnsw, eachindex(hnsw.data))
 
-set_ef!(hnsw::HierarchicalNSW, ef) = hnsw.ef = ef
-get_enter_point(hnsw::HierarchicalNSW) = hnsw.ep
-set_enter_point!(hnsw::HierarchicalNSW, ep) = hnsw.ep = ep
-get_top_layer(hnsw::HierarchicalNSW) = length(hnsw.lgraph)
-
-distance(hnsw::HierarchicalNSW, i, j) = @inbounds evaluate(hnsw.metric, hnsw.data[i], hnsw.data[j])
-distance(hnsw::HierarchicalNSW, i, q::AbstractVector) = @inbounds evaluate(hnsw.metric, hnsw.data[i], q)
-distance(hnsw::HierarchicalNSW, q::AbstractVector, j) = @inbounds evaluate(hnsw.metric, hnsw.data[j], q)
-
-
-function insert_point!(
-        hnsw::HierarchicalNSW, #multilayer graph
-        q, #new element (index)
-        l = get_random_level(hnsw.lgraph)
-        #M, #number of established connections
-        )
+function insert_point!(hnsw, q, l = get_random_level(hnsw.lgraph))
     lock(hnsw.ep_lock)
         ep = get_enter_point(hnsw)
-        L =  get_top_layer(hnsw)  #top layer of hnsw
+        L =  get_top_layer(hnsw)
         add_vertex!(hnsw.lgraph, q, l)
-        if ep == 0 #this needs to be locked
+        if ep == 0
             set_enter_point!(hnsw, q)
             unlock(hnsw.ep_lock)
             return nothing
@@ -149,39 +92,7 @@ function search_layer(
     return W #ef closest neighbors
 end
 
-#Alg 5
 
-function knn_search(
-        hnsw::HierarchicalNSW,
-        q, # query
-        K) #number of nearest neighbors to return
-    ef = max(K, hnsw.ef)
-    @assert length(q)==length(hnsw.data[1])
-    ep = get_enter_point(hnsw)
-    ep = Neighbor(ep, distance(hnsw, q, ep))
-    L = get_top_layer(hnsw) #layer of ep , top layer of hnsw
-    for level ∈ L:-1:2 # Iterate from top to second lowest
-        ep = search_layer(hnsw, q, ep, 1, level)[1]
-        #TODO: better upper layer implementation here as well
-    end
-    W = search_layer(hnsw, q, ep, ef, 1)
-    list = nearest(W, K)
-    idx = map(x->x.idx, list)
-    dist = map(x->x.dist, list)
-    return idx, dist# K nearest elements to q
-end
-
-function knn_search(hnsw::HierarchicalNSW{T,F}, #multilayer graph
-        q::AbstractVector{<:AbstractVector}, # query
-        K, #number of nearest neighbors to return
-        ) where {T,F}
-    idxs = Vector{Vector{T}}(undef,length(q))
-    dists = Vector{Vector{F}}(undef,length(q))
-    for n = 1:length(q)
-        idxs[n], dists[n] = knn_search(hnsw, q[n], K)
-    end
-    idxs, dists
-end
 
 function neighbor_heuristic(
         hnsw,
