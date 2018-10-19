@@ -51,13 +51,11 @@ levelof(lg::LayeredGraph, q) = length(lg.linklist[q])
 
 
 
-function add_connections!(hnsw, level, q, candidates::NeighborSet)
+function add_connections!(hnsw, level, q, selected::NeighborSet)
     lg = hnsw.lgraph
     maxM = max_connections(lg, level)
-    #get M neighbors by heuristic ?
-    selected_neighbors = nearest(candidates, maxM)
     #set neighbors
-    lg.linklist[q][level] = [n.idx for n in selected_neighbors]
+    lg.linklist[q][level] = [n.idx for n in selected.neighbor]
 
     # if unique(lg.linklist[q][level]) != lg.linklist[q][level]
     #     error("non-unique candidates")
@@ -66,7 +64,7 @@ function add_connections!(hnsw, level, q, candidates::NeighborSet)
     #     @assert levelof(lg,el) >= level
     # end
 
-    for n in selected_neighbors
+    for n in selected.neighbor
         qN = Neighbor(q, n.dist)
         #check levels
         #@assert level <= levelof(lg, n.idx)

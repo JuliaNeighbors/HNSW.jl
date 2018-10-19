@@ -42,15 +42,15 @@ using Test
     @testset "Low Recall Test" begin
         k = 1
         ef = 2
-        efConstruction = 100
-        M = 6
+        efConstruction = 20
+        M = 5
         hnsw = HierarchicalNSW(data; efConstruction=efConstruction, M=M)
         realidxs, realdists = knn(tree, queries, k)
         idxs, dists = knn_search(hnsw, queries, k, ef)
 
-        ratio = mean(map(idxs, realidxs) do i,j
+        recall = mean(map(idxs, realidxs) do i,j
                         length(i ∩ j) / k
                      end)
-        @test ratio > 0.8
+        @test recall > 0.7
     end
 end
