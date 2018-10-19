@@ -1,5 +1,7 @@
 export HierarchicalNSW
 export knn_search
+export Neighbor
+export NeighborSet
 
 mutable struct HierarchicalNSW{T, TF, V <: AbstractVector{<:AbstractVector{TF}}, M}
     lgraph::LayeredGraph{T}#Vector{SimpleGraph{T}}
@@ -15,7 +17,7 @@ end
 
 function HierarchicalNSW(data;
         metric=Euclidean(),
-        indices=eachindex(data), #breaks for maximum(indices) > length(indices)
+        indices=eachindex(data),
         M = 10, #5 to 48
         maxM = M,
         maxM0 = 2M,
@@ -32,11 +34,12 @@ function HierarchicalNSW(data;
 
     levels = [get_random_level(hnsw) for i ∈ 1:maximum(indices)]
     if threaded == true
-        println("multithreaded")
-        Threads.@threads for i ∈ 1:maximum(indices)#indices
-            insert_point!(hnsw, i, levels[i])
-        end
+        println("multithreading does not work yet")
+        #Threads.@threads for i ∈ 1:maximum(indices)#indices
+        #    insert_point!(hnsw, i, levels[i])
+        #end
     else
+        #This index thing is wrong
         for i ∈ 1:maximum(indices)#indices
             insert_point!(hnsw, i, levels[i])
         end
@@ -56,12 +59,11 @@ distance(hnsw::HierarchicalNSW, q::AbstractVector, j) = @inbounds evaluate(hnsw.
 
 
 function insert_point!(
-        hnsw::HierarchicalNSW{T,TF}, #multilayer graph
+        hnsw::HierarchicalNSW, #multilayer graph
         q, #new element (index)
         l = get_random_level(hnsw)
         #M, #number of established connections
-        ) where {T,TF}# normalization factor for level generation
-
+        )
     lock(hnsw.ep_lock)
         ep = get_enter_point(hnsw)
         L =  get_top_layer(hnsw)  #top layer of hnsw
@@ -73,33 +75,26 @@ function insert_point!(
         end
     unlock(hnsw.ep_lock)
     epN = Neighbor(ep, distance(hnsw, ep, q))
+    #Find nearest point within each layer and traverse down
     for level ∈ L:-1:l+1
+        #TODO: better implementation for upper layers where ef=1
         W = search_layer(hnsw, q, epN, 1,level)
         epN = nearest(W) #nearest element from q in W
     end
     for level ∈ min(L,l):-1:1
+        #println("inserting $q on layer $level")
+        #println("enterpoint is $epN")
         W = search_layer(hnsw, q, epN, hnsw.efConstruction, level)
+        #println("adding connections to $q : $(W.neighbor)")
         add_connections!(hnsw, level, q, W)
+        #println("resulting connections")
+        #println(hnsw.lgraph.linklist)
         epN = nearest(W)
     end
     if l > L
         set_enter_point!(hnsw, q) #set enter point for hnsw to q
     end
     return nothing
-end
-
-#alg 3 # very naive implementation but works for now
-function select_neighbors(
-    hnsw,
-    q, # Query
-    C::Vector{T}, # Candidate elements,
-    M, # number of neighbors to return
-    l_c) where {T <: Number}
-    if M > length(C)
-        return C
-    end
-    i = sortperm(C; by=(x->distance(hnsw,q,x)))
-    return C[i][1:M]
 end
 
 function search_layer(
@@ -110,15 +105,13 @@ function search_layer(
         level)
     lg = hnsw.lgraph
     vl = get_list(hnsw.vlp)
-    visit!(vl, ep.idx) #visited elements
+    visit!(vl, ep) #visited elements
     #@assert level <= levelof(lg,ep.idx)
     C = NeighborSet(ep) #set of candidates
     W = NeighborSet(ep) #dynamic list of found nearest neighbors
     while length(C) > 0
         c = pop_nearest!(C) # from q in C
-        if c.dist > furthest(W).dist
-            break # all elements in W are evaluated
-        end
+        #c.dist < furthest(W).dist || break#why is this?  # all elements in W are evaluated
         lock(lg.locklist[c.idx])
             for e ∈ neighbors(lg, c.idx, level)  #Update C and W
                 if !isvisited(vl, e)
@@ -171,6 +164,7 @@ function knn_search(hnsw::HierarchicalNSW{T,TF}, #multilayer graph
         ) where {T,TF}
     idxs = Vector{Vector{T}}(undef,length(q))
     dists = Vector{Vector{TF}}(undef,length(q))
+    ef = maximum(K, ef)
     for n = 1:length(q)
         idxs[n], dists[n] = knn_search(hnsw, q[n], K, ef)
     end
@@ -180,6 +174,21 @@ end
 
 
 
+
+
+#alg 3 # very naive implementation but works for now
+function select_neighbors(
+    hnsw,
+    q, # Query
+    C::Vector{T}, # Candidate elements,
+    M, # number of neighbors to return
+    l_c) where {T <: Number}
+    if M > length(C)
+        return C
+    end
+    i = sortperm(C; by=(x->distance(hnsw,q,x)))
+    return C[i][1:M]
+end
 
 #alg 4
 function select_neighbors_heuristic(
