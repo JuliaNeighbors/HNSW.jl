@@ -111,7 +111,18 @@ function search_layer(
     W = NeighborSet(ep) #dynamic list of found nearest neighbors
     while length(C) > 0
         c = pop_nearest!(C) # from q in C
-        #c.dist < furthest(W).dist || break#why is this?  # all elements in W are evaluated
+        #c.dist < furthest(W).dist && break#why is this?  # all elements in W are evaluated
+        if c.dist > furthest(W).dist
+            break
+            #This is the stopping condition.
+            #All points are initially both in C and W
+            #If the above condition is met, then W is already long enough
+            #AND due to "c = pop_nearest!(C)" we know that
+            #all points in W (closer than c) have been investigated
+
+            # We therefore assume that this link will not have any connections
+            # closer to q that have not been visited
+        end
         lock(lg.locklist[c.idx])
             for e ∈ neighbors(lg, c.idx, level)  #Update C and W
                 if !isvisited(vl, e)
@@ -164,7 +175,7 @@ function knn_search(hnsw::HierarchicalNSW{T,TF}, #multilayer graph
         ) where {T,TF}
     idxs = Vector{Vector{T}}(undef,length(q))
     dists = Vector{Vector{TF}}(undef,length(q))
-    ef = maximum(K, ef)
+    ef = max(K, ef)
     for n = 1:length(q)
         idxs[n], dists[n] = knn_search(hnsw, q[n], K, ef)
     end
