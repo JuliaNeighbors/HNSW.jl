@@ -7,17 +7,19 @@ mutable struct LayeredGraph{T}
     linklist::LinkList{T}  #linklist[index][level][link]
     locklist::Vector{Mutex}
     numlayers::Int
-    maxM0::Int
-    maxM::Int
+    M0::Int
+    M::Int
+    m_L::Float64
 end
 
 
-LayeredGraph{T}(num_elements::Int, maxM, maxM0) where {T} =
+LayeredGraph{T}(num_elements::Int, M, M0, m_L) where {T} =
     LayeredGraph{T}(LinkList{T}(num_elements),
-    [Mutex() for i=1:num_elements],0,maxM,maxM0)
+    [Mutex() for i=1:num_elements],0,M,M0,m_L)
 
 Base.length(lg::LayeredGraph) = lg.numlayers
 get_top_layer(lg::LayeredGraph) = lg.numlayers
+get_random_level(lg) = floor(Int, -log(rand())* lg.m_L) + 1
 
 function add_vertex!(lg::LayeredGraph{T}, i, level) where {T}
     #TODO: possibly add sizehint!() here
@@ -40,7 +42,7 @@ end
 rem_edge!(lg, level, s::Neighbor, t) = rem_edge!(lg, level, s.idx, t)
 rem_edge!(lg, level, s::Integer, t::Neighbor) = rem_edge!(lg, level, s, t.idx)
 
-max_connections(lg::LayeredGraph, level) = level==1 ? lg.maxM0 : lg.maxM
+max_connections(lg::LayeredGraph, level) = level==1 ? lg.M0 : lg.M
 
 neighbors(lg::LayeredGraph, level, q::Integer) = lg.linklist[q][level]
 neighbors(lg::LayeredGraph, level, q::Neighbor) = lg.linklist[q.idx][level]
@@ -51,7 +53,7 @@ levelof(lg::LayeredGraph, q) = length(lg.linklist[q])
 
 function add_connections!(hnsw, level, q, W::NeighborSet)
     lg = hnsw.lgraph
-    maxM = max_connections(lg, level)
+    M = max_connections(lg, level)
     #set neighbors
     lg.linklist[q][level] = [n.idx for n in W]
 
@@ -65,7 +67,7 @@ function add_connections!(hnsw, level, q, W::NeighborSet)
     for n in W
         qN = Neighbor(q, n.dist)
         lock(lg.locklist[n.idx]) #lock() linklist of n here
-            if length(neighbors(lg, level, n)) < maxM
+            if length(neighbors(lg, level, n)) < M
                 add_edge!(lg, level, n, qN)
             else
                 #remove weakest link and replace it

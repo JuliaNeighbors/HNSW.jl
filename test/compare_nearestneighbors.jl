@@ -17,8 +17,9 @@ using Test
         ef = 20
         realidxs, realdists = knn(tree, queries, k)
 
-        hnsw = HierarchicalNSW(data; efConstruction=efConstruction, M=M)
-        idxs, dists = knn_search(hnsw, queries, k, ef)
+        hnsw = HierarchicalNSW(data; efConstruction=efConstruction, M=M, ef=ef)
+        add_to_graph!(hnsw)
+        idxs, dists = knn_search(hnsw, queries, k)
 
         ratio = mean(map(idxs, realidxs) do i,j
                         length(i ∩ j) / k
@@ -29,10 +30,11 @@ using Test
     @testset "Large K, low M=$M" for M ∈ [5,10]
         efConstruction = 100
         ef = 50
-        hnsw = HierarchicalNSW(data; efConstruction=efConstruction, M=M)
+        hnsw = HierarchicalNSW(data; efConstruction=efConstruction, M=M, ef=ef)
+        add_to_graph!(hnsw)
         @testset "K=$K" for K ∈ [10,20]
             realidxs, realdists = knn(tree, queries, K)
-            idxs, dists = knn_search(hnsw, queries, K, ef)
+            idxs, dists = knn_search(hnsw, queries, K)
             ratio = mean(map(idxs, realidxs) do i,j
                             length(i ∩ j) / K
                          end)
@@ -41,12 +43,13 @@ using Test
     end
     @testset "Low Recall Test" begin
         k = 1
-        ef = 2
         efConstruction = 20
         M = 5
         hnsw = HierarchicalNSW(data; efConstruction=efConstruction, M=M)
+        add_to_graph!(hnsw)
+        set_ef!(hnsw, 2)
         realidxs, realdists = knn(tree, queries, k)
-        idxs, dists = knn_search(hnsw, queries, k, ef)
+        idxs, dists = knn_search(hnsw, queries, k)
 
         recall = mean(map(idxs, realidxs) do i,j
                         length(i ∩ j) / k

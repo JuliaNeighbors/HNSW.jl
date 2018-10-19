@@ -52,10 +52,10 @@ end
 #Test layered Graph
 @testset "LayeredGraph" begin
     num_elements = 100
-    maxM, maxM0 = 4, 8
-    lg = ANN.LayeredGraph{UInt32}(num_elements, maxM0, maxM)
-    @test max_connections(lg, 1) == maxM0
-    @test max_connections(lg, 2) == maxM
+    M, M0 = 4, 8
+    lg = ANN.LayeredGraph{UInt32}(num_elements, M0, M)
+    @test max_connections(lg, 1) == M0
+    @test max_connections(lg, 2) == M
     @testset "add_vertex! & get_top_layer" for i=1:10
         level = rand(1:10)
         add_vertex!(lg, i, level)
