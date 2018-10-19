@@ -22,7 +22,7 @@ Base.length(ns::NeighborSet) = length(ns.neighbor)
 function Base.insert!(ns::NeighborSet, n::Neighbor)
     #Possible optimization here (fewer look comparisons)
     # TODO: Optimize this for fewer lookups
-    @inbounds for j = length(ns):-1:1
+    @inbounds for j = 1:length(ns)#length(ns):-1:1
         if ns[j].dist > n.dist
             insert!(ns.neighbor, j, n)
             return nothing
