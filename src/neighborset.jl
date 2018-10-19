@@ -18,6 +18,8 @@ Base.getindex(ns::NeighborSet, i) = ns.neighbor[i]
 pop_nearest!(ns::NeighborSet) = popfirst!(ns.neighbor)
 pop_furthest!(ns::NeighborSet) = pop!(ns.neighbor)
 Base.length(ns::NeighborSet) = length(ns.neighbor)
+Base.iterate(ns::NeighborSet) = iterate(ns.neighbor)
+Base.iterate(ns::NeighborSet, i) = iterate(ns.neighbor,i)
 
 function Base.insert!(ns::NeighborSet, n::Neighbor)
     #Possible optimization here (fewer look comparisons)
