@@ -25,19 +25,20 @@ function add_vertex!(lg::LayeredGraph{T}, i, level) where {T}
     lg.numlayers > level || (lg.numlayers = level)
     return nothing
 end
-function add_edge!(lg::LayeredGraph, level, source, target)
-    #@assert level <= levelof(lg, source)
-    #@assert level <= levelof(lg, target)
-    #@assert source != target
+function add_edge!(lg::LayeredGraph, level, source::Integer, target::Integer)
     push!(lg.linklist[source][level],  target)
 end
+add_edge!(lg, level, s::Neighbor, t) = add_edge!(lg, level, s.idx, t)
+add_edge!(lg, level, s::Integer, t::Neighbor) = add_edge!(lg, level, s, t.idx)
 
-function rem_edge!(lg::LayeredGraph, level, source, target)
+function rem_edge!(lg::LayeredGraph, level, source::Integer, target::Integer)
     i = findfirst(isequal(target), lg.linklist[source][level])
     if i != nothing
         deleteat!(lg.linklist[source][level], i)
     end
 end
+rem_edge!(lg, level, s::Neighbor, t) = rem_edge!(lg, level, s.idx, t)
+rem_edge!(lg, level, s::Integer, t::Neighbor) = rem_edge!(lg, level, s, t.idx)
 
 max_connections(lg::LayeredGraph, level) = level==1 ? lg.maxM0 : lg.maxM
 
@@ -48,11 +49,11 @@ levelof(lg::LayeredGraph, q) = length(lg.linklist[q])
 
 
 
-function add_connections!(hnsw, level, q, selected::NeighborSet)
+function add_connections!(hnsw, level, q, W::NeighborSet)
     lg = hnsw.lgraph
     maxM = max_connections(lg, level)
     #set neighbors
-    lg.linklist[q][level] = [n.idx for n in selected.neighbor]
+    lg.linklist[q][level] = [n.idx for n in W]
 
     # if unique(lg.linklist[q][level]) != lg.linklist[q][level]
     #     error("non-unique candidates")
@@ -61,11 +62,8 @@ function add_connections!(hnsw, level, q, selected::NeighborSet)
     #     @assert levelof(lg,el) >= level
     # end
 
-    for n in selected.neighbor
+    for n in W
         qN = Neighbor(q, n.dist)
-        #check levels
-        #@assert level <= levelof(lg, n.idx)
-        #@assert level <= levelof(lg, qN.idx)
         lock(lg.locklist[n.idx]) #lock() linklist of n here
             if length(neighbors(lg, level, n)) < maxM
                 add_edge!(lg, level, n, qN)
@@ -79,8 +77,8 @@ function add_connections!(hnsw, level, q, selected::NeighborSet)
                     end
                 end
                 if weakest_link.dist > qN.dist
-                    rem_edge!(lg, level, n.idx, weakest_link.idx)
-                    add_edge!(lg, level, n.idx, qN.idx)
+                    rem_edge!(lg, level, n, weakest_link)
+                    add_edge!(lg, level, n, qN)
                 end
             end
         unlock(lg.locklist[n.idx]) #unlock here

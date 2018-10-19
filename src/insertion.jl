@@ -190,11 +190,11 @@ function neighbor_heuristic(
     R = typeof(W)() #Selected Neighbors
     W_d = typeof(W)() #Temporarily discarded candidates
 
-    for e ∈ W.neighbor
+    for e ∈ W
         if length(R) >= M break end
         #Compute distances to already selected points
         good = true
-        for r ∈ R.neighbor
+        for r ∈ R
             if e.dist > distance(hnsw, e.idx, r.idx)
                 good=false
                 break
@@ -206,7 +206,7 @@ function neighbor_heuristic(
             insert!(W_d, e)
         end
     end
-    for w ∈ W_d.neighbor
+    for w ∈ W_d
         if length(R) >= M break end
         insert!(R, w)
     end
