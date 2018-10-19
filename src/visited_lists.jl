@@ -12,8 +12,10 @@ function reset!(vl::VisitedList)
         vl.visited_value += UInt8(1)
     end
 end
-isvisited(vl::VisitedList, idx) = vl.list[idx] == vl.visited_value
-visit!(vl::VisitedList, idx) = vl.list[idx] = vl.visited_value
+isvisited(vl::VisitedList, idx::Integer) = vl.list[idx] == vl.visited_value
+isvisited(vl::VisitedList, q::Neighbor) = isvisited(vl, q.idx)
+visit!(vl::VisitedList, idx::Integer) = vl.list[idx] = vl.visited_value
+visit!(vl::VisitedList, q::Neighbor) = visit!(vl, q.idx)
 
 ## Multithreaded pool-management of VisitedList's
 
