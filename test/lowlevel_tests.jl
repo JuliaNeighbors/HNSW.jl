@@ -1,5 +1,5 @@
-using ApproximateNearestNeighbors
-import ApproximateNearestNeighbors: LayeredGraph, add_vertex!, add_edge!, get_top_layer, levelof, neighbors,max_connections, ANN
+using HNSW
+import HNSW: LayeredGraph, add_vertex!, add_edge!, get_top_layer, levelof, neighbors,max_connections
 using Test
 using LinearAlgebra
 using NearestNeighbors
@@ -12,39 +12,39 @@ using NearestNeighbors
         furthest_idx = findmax([norm(q-x) for x ∈ data])[2]
 
         #prepare candidates
-        cand = ANN.NeighborSet(1, norm(q-data[1]))
+        cand = HNSW.NeighborSet(1, norm(q-data[1]))
         for n = 2:100
-            ANN.insert!(cand, ANN.Neighbor(n, norm(q-data[n])))
+            HNSW.insert!(cand, HNSW.Neighbor(n, norm(q-data[n])))
         end
         #nearest
-        @test nearest_idx == ANN.nearest(cand).idx
+        @test nearest_idx == HNSW.nearest(cand).idx
 
         #extract_nearest!
-        @test nearest_idx == ANN.pop_nearest!(cand).idx
-        @test nearest_idx != ANN.nearest(cand)
+        @test nearest_idx == HNSW.pop_nearest!(cand).idx
+        @test nearest_idx != HNSW.nearest(cand)
 
         #furthest
-        @test furthest_idx == ANN.furthest(cand).idx
-        ANN.pop_furthest!(cand)
-        @test furthest_idx != ANN.furthest(cand)
+        @test furthest_idx == HNSW.furthest(cand).idx
+        HNSW.pop_furthest!(cand)
+        @test furthest_idx != HNSW.furthest(cand)
     end
 end
 
 #Test Visited List Pool
 @testset "VisitedListPool" begin
     elnum = 20
-    vlp = ANN.VisitedListPool(1,elnum)
-    vl = ANN.get_list(vlp)
+    vlp = HNSW.VisitedListPool(1,elnum)
+    vl = HNSW.get_list(vlp)
     println(vl)
     for i = 1:elnum
-        @test ANN.isvisited(vl, i) == false
-        ANN.visit!(vl,i)
-        @test ANN.isvisited(vl, i) == true
+        @test HNSW.isvisited(vl, i) == false
+        HNSW.visit!(vl,i)
+        @test HNSW.isvisited(vl, i) == true
     end
     for i=1:500
-         ANN.reset!(vl)
+         HNSW.reset!(vl)
          j = rand(1:elnum)
-         @test ANN.isvisited(vl, j) == false
+         @test HNSW.isvisited(vl, j) == false
     end
     println(vl)
 end
@@ -53,7 +53,7 @@ end
 @testset "LayeredGraph" begin
     num_elements = 100
     M, M0 = 4, 8
-    lg = ANN.LayeredGraph{UInt32}(num_elements, M0, M)
+    lg = HNSW.LayeredGraph{UInt32}(num_elements, M0, M)
     @test max_connections(lg, 1) == M0
     @test max_connections(lg, 2) == M
     @testset "add_vertex! & get_top_layer" for i=1:10
@@ -91,7 +91,7 @@ end
 #     q = rand(1:1000)
 #     for i = 1:10
 #         connections = rand(1:1000, 20)
-#         ANN.set_neighbors!(layer, q, connections)
+#         HNSW.set_neighbors!(layer, q, connections)
 #         @test neighbors(layer, q) == sort(unique(connections))
 #     end
 # end
@@ -101,21 +101,21 @@ end
 #     hnsw = HierarchicalNSW(data)
 #     #Query Point
 #     q = rand(5)
-#     C = ANN.NeighborSet{Int32,Float64}()
+#     C = HNSW.NeighborSet{Int32,Float64}()
 #     for i ∈ unique(rand(1:100, 20))
-#         insert!(C, ANN.Neighbor(i, norm(q-data[i])))
+#         insert!(C, HNSW.Neighbor(i, norm(q-data[i])))
 #     end
 #     M = 5
 #     l_c = 1 #meaningless here
 #
 #     #find M indices whose distances is closest to q
-#     @test ANN.nearest(C,M) == ANN.select_neighbors(hnsw, q,C,M,l_c)
+#     @test HNSW.nearest(C,M) == HNSW.select_neighbors(hnsw, q,C,M,l_c)
 #
 #     #use a q index rather than point
 #     q = rand(1:100)
-#     C = [ANN.Neighbor(i, norm(data[q]-data[i])) for i ∈ unique(rand(1:100, 20))]
+#     C = [HNSW.Neighbor(i, norm(data[q]-data[i])) for i ∈ unique(rand(1:100, 20))]
 #     i = sortperm(data[getproperty.(C,:idx)]; by=(p->norm(p-data[q])))
-#     @test C[i][1:M] == ANN.select_neighbors(hnsw, q,C,M,l_c)
+#     @test C[i][1:M] == HNSW.select_neighbors(hnsw, q,C,M,l_c)
 # end
 #
 # @testset "knn_search" begin

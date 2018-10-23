@@ -1,5 +1,5 @@
 using NearestNeighbors
-using ApproximateNearestNeighbors
+using HNSW
 using StaticArrays
 using Statistics
 using Test

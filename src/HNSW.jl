@@ -1,5 +1,4 @@
-module ApproximateNearestNeighbors
-    const ANN = ApproximateNearestNeighbors
+module HNSW
     import Base.Threads: Mutex
     using LinearAlgebra
     using Distances
