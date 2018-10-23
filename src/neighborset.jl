@@ -26,15 +26,8 @@ Base.iterate(ns::NeighborSet) = iterate(ns.neighbor)
 Base.iterate(ns::NeighborSet, i) = iterate(ns.neighbor,i)
 
 function Base.insert!(ns::NeighborSet, n::Neighbor)
-    #Possible optimization here (fewer look comparisons)
-    # TODO: Optimize this for fewer lookups
-    @inbounds for j = 1:length(ns)#length(ns):-1:1
-        if ns[j].dist > n.dist
-            insert!(ns.neighbor, j, n)
-            return nothing
-        end
-    end
-    push!(ns.neighbor, n)
+    idx = searchsortedfirst(ns.neighbor, n, by=x->x.dist)
+    insert!(ns.neighbor, idx, n)
     return nothing
 end
 
