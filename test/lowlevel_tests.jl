@@ -53,7 +53,8 @@ end
 @testset "LayeredGraph" begin
     num_elements = 100
     M, M0 = 4, 8
-    lg = HNSW.LayeredGraph{UInt32}(num_elements, M0, M)
+    m_L = 1.
+    lg = HNSW.LayeredGraph{UInt32}(num_elements, M0, M, m_L)
     @test max_connections(lg, 1) == M0
     @test max_connections(lg, 2) == M
     @testset "add_vertex! & get_top_layer" for i=1:10
