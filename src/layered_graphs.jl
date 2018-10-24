@@ -41,7 +41,7 @@ end
 
 function add_edge!(lg::LayeredGraph, level, source::Integer, target::Integer)
     M0, M = lg.M0, lg.M
-    offset = level > 1 ? M0 + M*(level-2) : 0
+    offset = index_offset(lg,level)
     for m ∈ 1:max_connections(lg, level)
         if lg.linklist[source][offset + m] == 0
             lg.linklist[source][offset + m]  = target
@@ -76,23 +76,23 @@ end
 # rem_edge!(lg, level, s::Integer, t::Neighbor) = rem_edge!(lg, level, s, t.idx)
 
 max_connections(lg::LayeredGraph, level) = level==1 ? lg.M0 : lg.M
-
+index_offset(lg, level) = level > 1 ? lg.M0 + lg.M*(level-2) : 0
 
 struct LinkIterator{T}
-    lg::LayeredGraph{T}
-    level::Int
-    q::T
+    links::Vector{T}
+    idx_offset::Int
+    max_links::Int
+end
+function LinkIterator(lg::LayeredGraph{T}, level, q::Integer) where {T}
+    idx_offset = index_offset(lg, level)
+    max_links = max_connections(lg, level)
+    links = lg.linklist[q]
+    LinkIterator{T}(links, idx_offset, max_links)
 end
 
 function Base.iterate(li::LinkIterator, state=1)
-    q,M,M0 = li.q, li.lg.M, li.lg.M0
-    level = li.level
-    linklist = li.lg.linklist
-
-    state <= max_connections(li.lg, level) || return nothing
-
-    offset = level > 1 ? M0 + M*(level-2) : 0
-    idx = linklist[q][offset + state]
+    state <= li.max_links || return nothing
+    idx = li.links[li.idx_offset + state]
     if idx == 0
         return nothing
     else
