@@ -7,11 +7,11 @@ Add `i ∈ indices` referring to `data[i]` into the graph.
 ATM does not check if already added.
 Adding index twice leads to segfault.
 """
-function add_to_graph!(hnsw, indices, multithreading=false)
+function add_to_graph!(hnsw::HierarchicalNSW{T}, indices, multithreading=false) where {T}
     #Does not check if index has already been added
     if multithreading == false
         for i ∈ indices
-            insert_point!(hnsw, i)
+            insert_point!(hnsw, T(i))
         end
     else
         #levels = [get_random_level(hnsw) for i ∈ 1:maximum(indices)]
@@ -20,6 +20,7 @@ function add_to_graph!(hnsw, indices, multithreading=false)
         #    insert_point!(hnsw, i, levels[i])
         #end
     end
+    return nothing
 end
 add_to_graph!(hnsw::HierarchicalNSW) = add_to_graph!(hnsw, eachindex(hnsw.data))
 
@@ -82,8 +83,9 @@ function search_layer(
             # We therefore assume that this link will not have any connections
             # closer to q that have not been visited
         end
-        lock(lg.locklist[c.idx])
-            for e ∈ neighbors(lg, level, c)  #Update C and W
+        #lock(lg.locklist[c.idx])
+        iter = neighbors(lg, level, c)
+            for e ∈ iter  #Update C and W
                 if !isvisited(vl, e)
                     visit!(vl, e)
                     dist =  distance(hnsw,q,e)
@@ -98,7 +100,7 @@ function search_layer(
                     end
                 end
             end
-        unlock(lg.locklist[c.idx])
+        #unlock(lg.locklist[c.idx])
     end
     release_list(hnsw.vlp, vl)
     return W #ef closest neighbors
@@ -113,7 +115,6 @@ function neighbor_heuristic(
     M = max_connections(hnsw.lgraph, level)
     if length(W) <= M return W end
     R = typeof(W)() #Selected Neighbors
-    W_d = typeof(W)() #Temporarily discarded candidates
 
     for e ∈ W
         if length(R) >= M break end
@@ -127,13 +128,38 @@ function neighbor_heuristic(
         end
         if good#e is closer to q compared to any element from R
             insert!(R, e) # I know it comes first. Possible Op. `pushfirst!`
-        else
-            insert!(W_d, e)
         end
-    end
-    for w ∈ W_d
-        if length(R) >= M break end
-        insert!(R, w)
     end
     return R
 end
+# function neighbor_heuristic(
+#         hnsw,
+#         level,
+#         W) # candidate elements
+#     M = max_connections(hnsw.lgraph, level)
+#     if length(W) <= M return W end
+#     R = typeof(W)() #Selected Neighbors
+#     W_d = typeof(W)() #Temporarily discarded candidates
+#
+#     for e ∈ W
+#         if length(R) >= M break end
+#         #Compute distances to already selected points
+#         good = true
+#         for r ∈ R
+#             if e.dist > distance(hnsw, e.idx, r.idx)
+#                 good=false
+#                 break
+#             end
+#         end
+#         if good#e is closer to q compared to any element from R
+#             insert!(R, e) # I know it comes first. Possible Op. `pushfirst!`
+#         else
+#             insert!(W_d, e)
+#         end
+#     end
+#     for w ∈ W_d
+#         if length(R) >= M break end
+#         insert!(R, w)
+#     end
+#     return R
+# end
