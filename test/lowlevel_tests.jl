@@ -62,23 +62,25 @@ end
         add_vertex!(lg, i, level)
         @test get_top_layer(lg) >= level
     end
-    @testset "add_edge!" for i = 1:10, j=1:10
-        if i==j
-            #@test_throws AssertionError add_edge!(lg, 1, i, j)
-        else
-            level = rand(1:5)
-            if levelof(lg, i) < level || levelof(lg, j) < level
-                #@test_throws AssertionError add_edge!(lg, level, i,j)
+    @testset "add_edge!" begin
+        for i = 1:10, j=1:10
+            if i==j
+                #@test_throws AssertionError add_edge!(lg, 1, i, j)
             else
-                add_edge!(lg, level, i,j)
+                level = rand(1:5)
+                if levelof(lg, i) < level || levelof(lg, j) < level
+                    #@test_throws AssertionError add_edge!(lg, level, i,j)
+                else
+                    add_edge!(lg, level, i,j)
 
-                @test j ∈ [neighbors(lg,level,i)...]
+                    @test j ∈ [neighbors(lg,level,i)...]
+                end
             end
         end
     end
     @testset "neighbors" begin
         for i = 1:10
-            level = rand(1:5)
+            level = rand(1:10)
             if level > levelof(lg, i)
                 #@test_throws AssertionError neighbors(lg, i, level)
             else

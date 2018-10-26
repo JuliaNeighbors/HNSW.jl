@@ -101,7 +101,7 @@ function neighbors(lg, level, q::Integer)
 end
 neighbors(lg, level, q::Neighbor) = neighbors(lg, level, q.idx)
 
-levelof(lg::LayeredGraph, q) = length(lg.linklist[q])
+levelof(lg::LayeredGraph, q) = 1 + (length(lg.linklist[q])-lg.M0) % lg.M
 
 
 
