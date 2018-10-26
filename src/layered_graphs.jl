@@ -34,7 +34,7 @@ get_top_layer(lg::LayeredGraph) = lg.numlayers
 get_random_level(lg) = floor(Int, -log(rand())* lg.m_L) + 1
 
 function add_vertex!(lg::LayeredGraph{T}, i, level) where {T}
-    lg.linklist[i] = fill(T(0), lg.M0 + (level-1)*lg.M)
+    lg.linklist[i] = fill(zero(T), lg.M0 + (level-1)*lg.M)
     lg.numlayers > level || (lg.numlayers = level)
     return nothing
 end
@@ -66,22 +66,14 @@ function replace_edge!(lg, level, source, target, newtarget)
     @warn "target link to be replaced was not found"
     return false
 end
-# function rem_edge!(lg::LayeredGraph, level, source::Integer, target::Integer)
-#     i = findfirst(isequal(target), neighbors(lg,level, source))
-#     if i != nothing
-#         lg.linklist[source][i] = 0? #deleteat!(lg.linklist[source][level], i)
-#     end
-# end
-# rem_edge!(lg, level, s::Neighbor, t) = rem_edge!(lg, level, s.idx, t)
-# rem_edge!(lg, level, s::Integer, t::Neighbor) = rem_edge!(lg, level, s, t.idx)
 
 max_connections(lg::LayeredGraph, level) = level==1 ? lg.M0 : lg.M
 index_offset(lg, level) = level > 1 ? lg.M0 + lg.M*(level-2) : 0
 
 struct LinkIterator{T}
     links::Vector{T}
-    idx_offset::Int
-    max_links::Int
+    idx_offset::T
+    max_links::T
 end
 function LinkIterator(lg::LayeredGraph{T}, level, q::Integer) where {T}
     idx_offset = index_offset(lg, level)
@@ -90,13 +82,17 @@ function LinkIterator(lg::LayeredGraph{T}, level, q::Integer) where {T}
     LinkIterator{T}(links, idx_offset, max_links)
 end
 
-function Base.iterate(li::LinkIterator, state=1)
-    state <= li.max_links || return nothing
-    idx = li.links[li.idx_offset + state]
+function Base.iterate(li::LinkIterator{T}, state=one(T)) where {T}
+    max_links = li.max_links
+    state <= max_links || return nothing
+    idx_offset = li.idx_offset
+    links = li.links
+    index = idx_offset + state
+    idx = links[index]
     if idx == 0
         return nothing
     else
-        return idx, state+1
+        return idx, state+one(T)
     end
 end
 
@@ -128,6 +124,7 @@ function add_connections!(hnsw, level, q, W::NeighborSet)
             if   add_edge!(lg, level, n, qN)
             else
                 #remove weakest link and replace it
+                #possibly Typeunstable here!
                 weakest_link = qN # dist to q
                 for c in neighbors(lg, level, n)
                     dist = distance(hnsw, n.idx, c)
