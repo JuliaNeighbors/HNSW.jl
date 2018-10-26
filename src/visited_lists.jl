@@ -14,13 +14,13 @@ and visit with
 
 To reset the list, call 'reset!(vl)'.
 """
-VisitedList(num_elements) = VisitedList(Vector{UInt8}(fill(UInt8(0),num_elements)),1)
+VisitedList(num_elements) = VisitedList(Vector{UInt8}(fill(zero(UInt8),num_elements)),1)
 
 function reset!(vl::VisitedList)
-    vl.visited_value += UInt8(1)
-    if vl.visited_value == 0
-        vl.list .= UInt8(0)
-        vl.visited_value += UInt8(1)
+    vl.visited_value += one(UInt8)
+    if vl.visited_value == zero(UInt8)
+        vl.list .= zero(UInt8)
+        vl.visited_value += one(UInt8)
     end
 end
 isvisited(vl::VisitedList, idx::Integer) = vl.list[idx] == vl.visited_value
