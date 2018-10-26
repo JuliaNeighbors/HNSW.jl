@@ -1,8 +1,12 @@
-const LinkList{T} = Vector{Vector{Vector{T}}}
+############################################################################################
+#                                     Layered Graph                                        #
+############################################################################################
 
+const LinkList{T} = Vector{Vector{Vector{T}}}
 function LinkList{T}(num_elements::Int) where {T}
     fill(Vector{T}[], num_elements)
 end
+
 mutable struct LayeredGraph{T}
     linklist::LinkList{T}  #linklist[index][level][link]
     locklist::Vector{Mutex}
@@ -13,6 +17,16 @@ mutable struct LayeredGraph{T}
 end
 
 
+
+"""
+        LayeredGraph{T}(num_elements, M, M0, m_L)
+    A multi-layer directed graph with `num_elements` nodes and edges of type `T`.
+    The bottom layer contains all points and each upper layer contains a subset of
+    nodes of the one below. `M0` is the maximum number of edges in the bottom layer.
+    `M` is the maximum number of edges in all other layers.
+
+    `m_L` is used for random level generation. ( See ['get_random_level'](@ref) )
+"""
 LayeredGraph{T}(num_elements::Int, M, M0, m_L) where {T} =
     LayeredGraph{T}(LinkList{T}(num_elements), [Mutex() for i=1:num_elements],0,M,M0,m_L)
 Base.length(lg::LayeredGraph) = lg.numlayers

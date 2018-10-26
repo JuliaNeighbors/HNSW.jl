@@ -1,12 +1,32 @@
 export Neighbor
 export NeighborSet
 
-
+"""
+    Neighbor{T, F}(idx::T, dist::F)
+Simple struct for storing a _neighbor_ index
+along with its distance to some query element.
+"""
 struct Neighbor{T, F}
     idx::T
     dist::F
 end
 
+"""
+    NeighborSet(n::Neighbor)
+An ordered List of ['Neighbor'](@ref), sorted by
+the `dist` field.
+Elements can be added by calling
+
+    insert!(ns::NeighborsSet, n::Neighbor)
+
+and retrieved with
+
+    nearest(ns::NeighborSet) → Neighbor
+    nearest(ns::NeighborSet, k) → k nearest Neighbors
+    furthest(ns::NeighborSet) → Neighbor
+    pop_nearest!(ns::NeighborSet) → Neighbor
+    pop_furthest!(ns::NeighborSet) → Neighbor
+"""
 struct NeighborSet{T <: Integer, F <: Real}
     neighbor::Vector{Neighbor{T,F}}
 end

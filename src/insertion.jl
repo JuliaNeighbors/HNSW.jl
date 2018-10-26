@@ -1,5 +1,12 @@
 export knn_search
 
+"""
+    add_to_graph!(hnsw, indices, multithreading=false)
+Add `i ∈ indices` referring to `data[i]` into the graph.
+
+ATM does not check if already added.
+Adding index twice leads to segfault.
+"""
 function add_to_graph!(hnsw, indices, multithreading=false)
     #Does not check if index has already been added
     if multithreading == false
@@ -16,6 +23,11 @@ function add_to_graph!(hnsw, indices, multithreading=false)
 end
 add_to_graph!(hnsw::HierarchicalNSW) = add_to_graph!(hnsw, eachindex(hnsw.data))
 
+
+"""
+    insert_point!(hnsw, q, l = get_random_level(hnsw.lgraph))
+Insert index `q` referring to data point `data[q]` into the graph.
+"""
 function insert_point!(hnsw, q, l = get_random_level(hnsw.lgraph))
     lock(hnsw.ep_lock)
         ep = get_enter_point(hnsw)
