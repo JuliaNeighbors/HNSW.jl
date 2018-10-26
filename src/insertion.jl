@@ -72,20 +72,11 @@ function search_layer(
     W = NeighborSet(ep) #dynamic list of found nearest neighbors
     while length(C) > 0
         c = pop_nearest!(C) # from q in C
-        if c.dist > furthest(W).dist
+        if c.dist > furthest(W).dist #Stopping condition
             break
-            #This is the stopping condition.
-            #All points are initially both in C and W
-            #If the above condition is met, then W is already long enough
-            #AND due to "c = pop_nearest!(C)" we know that
-            #all points in W (closer than c) have been investigated
-
-            # We therefore assume that this link will not have any connections
-            # closer to q that have not been visited
         end
         #lock(lg.locklist[c.idx])
-        iter = neighbors(lg, level, c)
-            for e ∈ iter  #Update C and W
+            for e ∈ neighbors(lg, level, c)  #Update C and W
                 if !isvisited(vl, e)
                     visit!(vl, e)
                     dist =  distance(hnsw,q,e)

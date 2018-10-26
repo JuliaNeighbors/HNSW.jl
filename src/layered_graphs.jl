@@ -83,12 +83,8 @@ function LinkIterator(lg::LayeredGraph{T}, level, q::Integer) where {T}
 end
 
 function Base.iterate(li::LinkIterator{T}, state=one(T)) where {T}
-    max_links = li.max_links
-    state <= max_links || return nothing
-    idx_offset = li.idx_offset
-    links = li.links
-    index = idx_offset + state
-    idx = links[index]
+    state <= li.max_links || return nothing
+    idx = li.links[li.idx_offset + state]
     if idx == 0
         return nothing
     else
@@ -113,18 +109,16 @@ function add_connections!(hnsw, level, q, W::NeighborSet)
     lg = hnsw.lgraph
     M = max_connections(lg, level)
     #set neighbors
-    #lg.linklist[q][level] = [n.idx for n in W]
     for n in W
         add_edge!(lg, level, q, n.idx)
     end
     for n in W
         qN = Neighbor(q, n.dist)
         lock(lg.locklist[n.idx]) #lock() linklist of n here
-            #if length(neighbors(lg, level, n)) < M
             if   add_edge!(lg, level, n, qN)
             else
                 #remove weakest link and replace it
-                #possibly Typeunstable here!
+                #TODO: likely needs neighbor_heuristic here
                 weakest_link = qN # dist to q
                 for c in neighbors(lg, level, n)
                     dist = distance(hnsw, n.idx, c)
@@ -134,8 +128,6 @@ function add_connections!(hnsw, level, q, W::NeighborSet)
                 end
                 if weakest_link.dist > qN.dist
                     replace_edge!(lg, level, n.idx, weakest_link.idx, qN.idx)
-                    #rem_edge!(lg, level, n, weakest_link)
-                    #add_edge!(lg, level, n, qN)
                 end
             end
         unlock(lg.locklist[n.idx]) #unlock here
