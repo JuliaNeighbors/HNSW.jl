@@ -4,13 +4,13 @@ function knn_search(hnsw, q, K)
     ef = max(K, hnsw.ef)
     @assert length(q)==length(hnsw.data[1])
     ep = get_enter_point(hnsw)
-    ep = Neighbor(ep, distance(hnsw, q, ep))
+    epN = Neighbor(ep, distance(hnsw, q, ep))
     L = get_top_layer(hnsw) #layer of ep , top layer of hnsw
     for level ∈ L:-1:2 # Iterate from top to second lowest
-        ep = search_layer(hnsw, q, ep, 1, level)[1]
+        epN = search_layer(hnsw, q, epN, 1, level)[1]
         #TODO: better upper layer implementation here as well
     end
-    W = search_layer(hnsw, q, ep, ef, 1)
+    W = search_layer(hnsw, q, epN, ef, 1)
     list = nearest(W, K)
     idx = map(x->x.idx, list)
     dist = map(x->x.dist, list)

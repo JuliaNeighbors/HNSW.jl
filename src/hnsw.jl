@@ -3,7 +3,7 @@ export add_to_graph!, set_ef!
 
 
 
-mutable struct HierarchicalNSW{T, TF, V <: AbstractVector{<:AbstractVector{TF}}, M}
+mutable struct HierarchicalNSW{T, F, V, M}
     lgraph::LayeredGraph{T}
     data::V
     ep::T
