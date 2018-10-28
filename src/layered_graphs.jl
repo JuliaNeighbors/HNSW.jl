@@ -19,19 +19,24 @@ end
 
 
 """
-        LayeredGraph{T}(num_elements, M, M0, m_L)
-    A multi-layer directed graph with `num_elements` nodes and edges of type `T`.
-    The bottom layer contains all points and each upper layer contains a subset of
-    nodes of the one below. `M0` is the maximum number of edges in the bottom layer.
-    `M` is the maximum number of edges in all other layers.
+    LayeredGraph{T}(num_elements, M, M0, m_L)
+A multi-layer directed graph with `num_elements` nodes and edges of type `T`.
+The bottom layer contains all points and each upper layer contains a subset of
+nodes of the one below. `M0` is the maximum number of edges in the bottom layer.
+`M` is the maximum number of edges in all other layers.
 
-    `m_L` is used for random level generation. ( See ['get_random_level'](@ref) )
+`m_L` is used for random level generation. ( See ['get_random_level'](@ref) )
 """
-LayeredGraph{T}(num_elements::Int, M, M0, m_L) where {T} =
-    LayeredGraph{T}(LinkList{T}(num_elements), [Mutex() for i=1:num_elements],0,M,M0,m_L)
-Base.length(lg::LayeredGraph) = lg.numlayers
-get_top_layer(lg::LayeredGraph) = lg.numlayers
-get_random_level(lg) = floor(Int, -log(rand())* lg.m_L) + 1
+function LayeredGraph{T}(num_elements::Int, M, M0, m_L) where {T}
+    LayeredGraph{T}(
+        LinkList{T}(num_elements),
+        [Mutex() for i=1:num_elements],
+        0,
+        M,
+        M0,
+        m_L)
+end
+
 
 function add_vertex!(lg::LayeredGraph{T}, i, level) where {T}
     lg.linklist[i] = fill(zero(T), lg.M0 + (level-1)*lg.M)
@@ -67,8 +72,20 @@ function replace_edge!(lg, level, source, target, newtarget)
     return false
 end
 
+############################################################################################
+#                                  Utility Functions                                       #
+############################################################################################
+
+Base.length(lg::LayeredGraph) = lg.numlayers
+get_top_layer(lg::LayeredGraph) = lg.numlayers
+get_random_level(lg) = floor(Int, -log(rand())* lg.m_L) + 1
 max_connections(lg::LayeredGraph, level) = level==1 ? lg.M0 : lg.M
 index_offset(lg, level) = level > 1 ? lg.M0 + lg.M*(level-2) : 0
+levelof(lg::LayeredGraph, q) = 1 + (length(lg.linklist[q])-lg.M0) % lg.M
+
+############################################################################################
+#                              Neighbors / Link Iteration                                  #
+############################################################################################
 
 struct LinkIterator{T}
     links::Vector{T}
@@ -101,26 +118,25 @@ function neighbors(lg, level, q::Integer)
 end
 neighbors(lg, level, q::Neighbor) = neighbors(lg, level, q.idx)
 
-levelof(lg::LayeredGraph, q) = 1 + (length(lg.linklist[q])-lg.M0) % lg.M
-
-
-
-function add_connections!(hnsw, level, q, W::NeighborSet)
+############################################################################################
+#                             Add Connections Into Graph                                   #
+############################################################################################
+function add_connections!(hnsw, level, query, candidates)
     lg = hnsw.lgraph
     M = max_connections(lg, level)
-    W = neighbor_heuristic(hnsw, level, W)
+    W = neighbor_heuristic(hnsw, level, candidates)
     #set neighbors
     for n in W
-        add_edge!(lg, level, q, n.idx)
+        add_edge!(lg, level, query, n)
     end
     for n in W
-        qN = Neighbor(q, n.dist)
+        q = Neighbor(query, n.dist)
         lock(lg.locklist[n.idx]) #lock() linklist of n here
-            if   add_edge!(lg, level, n, qN)
+            if   add_edge!(lg, level, n, q)
             else
                 #remove weakest link and replace it
                 #TODO: likely needs neighbor_heuristic here
-                weakest_link = qN # dist to q
+                weakest_link = q # dist to query
                 for c in neighbors(lg, level, n)
                     dist = distance(hnsw, n.idx, c)
                     if weakest_link.dist < dist
@@ -128,7 +144,7 @@ function add_connections!(hnsw, level, q, W::NeighborSet)
                     end
                 end
                 if weakest_link.dist > qN.dist
-                    replace_edge!(lg, level, n.idx, weakest_link.idx, qN.idx)
+                    replace_edge!(lg, level, n.idx, weakest_link.idx, q.idx)
                 end
             end
         unlock(lg.locklist[n.idx]) #unlock here
