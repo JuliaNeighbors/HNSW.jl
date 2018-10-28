@@ -27,35 +27,31 @@ add_to_graph!(hnsw::HierarchicalNSW) = add_to_graph!(hnsw, eachindex(hnsw.data))
 
 """
     insert_point!(hnsw, q, l = get_random_level(hnsw.lgraph))
-Insert index `q` referring to data point `data[q]` into the graph.
+Insert index `query` referring to data point `data[q]` into the graph.
 """
-function insert_point!(hnsw, q, l = get_random_level(hnsw.lgraph))
+function insert_point!(hnsw, query, l = get_random_level(hnsw.lgraph))
     lock(hnsw.ep_lock)
-        ep = get_enter_point(hnsw)
+        enter_point = get_enter_point(hnsw)
         L =  get_top_layer(hnsw)
-        add_vertex!(hnsw.lgraph, q, l)
-        if ep == 0
-            set_enter_point!(hnsw, q)
+        add_vertex!(hnsw.lgraph, query, l)
+        if enter_point == 0
+            set_enter_point!(hnsw, query)
             unlock(hnsw.ep_lock)
             return nothing
         end
     unlock(hnsw.ep_lock)
-    epN = Neighbor(ep, distance(hnsw, ep, q))
-    #Find nearest point within each layer and traverse down
-    for level ∈ L:-1:l+1
-        #TODO: better implementation for upper layers where ef=1
-        W = search_layer(hnsw, q, epN, 1,level)
-        epN = nearest(W) #nearest element from q in W
+    ep = Neighbor(enter_point, distance(hnsw, enter_point, query))
+    for level ∈ L:-1:l+1 #Find nearest point within each layer and traverse down
+        W = search_layer(hnsw, query, ep, 1,level)
+        ep = nearest(W) #nearest element from q in W
     end
     for level ∈ min(L,l):-1:1
-        W = search_layer(hnsw, q, epN, hnsw.efConstruction, level)
+        W = search_layer(hnsw, query, ep, hnsw.efConstruction, level)
         W = neighbor_heuristic(hnsw, level, W)
-        add_connections!(hnsw, level, q, W)
-        epN = nearest(W)
+        add_connections!(hnsw, level, query, W)
+        ep = nearest(W)
     end
-    if l > L
-        set_enter_point!(hnsw, q) #set enter point for hnsw to q
-    end
+    l > L && set_enter_point!(hnsw, query) #another lock here
     return nothing
 end
 
@@ -75,9 +71,7 @@ function search_layer(hnsw, query, enter_point, num_points, level)
                     if eN.dist < furthest(W).dist || length(W) < num_points
                         insert!(C, eN)
                         insert!(W, eN) #add optional maxlength feature?
-                        if length(W) > num_points
-                            pop_furthest!(W)
-                        end
+                        length(W) < num_points || pop_furthest!(W)
                     end
                 end
             end
