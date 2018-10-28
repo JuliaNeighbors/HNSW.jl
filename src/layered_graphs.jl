@@ -141,7 +141,7 @@ function add_connections!(hnsw, level, query, candidates)
                         weakest_link = Neighbor(c, dist)
                     end
                 end
-                if weakest_link.dist > qN.dist
+                if weakest_link.dist > q.dist
                     replace_edge!(lg, level, n.idx, weakest_link.idx, q.idx)
                 end
             end

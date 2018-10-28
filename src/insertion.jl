@@ -61,7 +61,7 @@ function search_layer(hnsw, query, enter_point, num_points, level)
     W = NeighborSet(enter_point) #dynamic list of found nearest neighbors
     while length(C) > 0
         c = pop_nearest!(C) # from query in C
-        c.dist < furthest(W).dist || break #Stopping condition
+        c.dist > furthest(W).dist && break #Stopping condition
         #lock(lg.locklist[c.idx])
             for e ∈ neighbors(hnsw.lgraph, level, c)
                 if !isvisited(vl, e)
@@ -84,11 +84,11 @@ end
 
 function neighbor_heuristic(hnsw, level, candidates)
     M = max_connections(hnsw.lgraph, level)
-    length(candidates) <= M  || return candidates
+    length(candidates) <= M  && return candidates
 
     chosen = typeof(candidates)()
     for e ∈ candidates
-        length(chosen) >= M  || break
+        length(chosen) < M  || break
         #Heuristic:
         good = true
         for r ∈ chosen
