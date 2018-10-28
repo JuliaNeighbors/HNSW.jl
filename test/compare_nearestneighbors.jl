@@ -54,6 +54,6 @@ using Test
         recall = mean(map(idxs, realidxs) do i,j
                         length(i ∩ j) / k
                      end)
-        @test recall > 0.7
+        @test recall > 0.6
     end
 end

@@ -52,7 +52,7 @@ end
 #Test layered Graph
 @testset "LayeredGraph" begin
     num_elements = 100
-    M, M0 = 4, 8
+    M, M0 = 16, 32
     m_L = 1.
     lg = HNSW.LayeredGraph{UInt32}(num_elements, M0, M, m_L)
     @test max_connections(lg, 1) == M0
@@ -62,71 +62,35 @@ end
         add_vertex!(lg, i, level)
         @test get_top_layer(lg) >= level
     end
-    @testset "add_edge! & rem_edge!" for i = 1:10, j=1:10
-        if i==j
-            #@test_throws AssertionError add_edge!(lg, 1, i, j)
-        else
-            level = rand(1:5)
-            if levelof(lg, i) < level || levelof(lg, j) < level
-                #@test_throws AssertionError add_edge!(lg, level, i,j)
+    @testset "add_edge!" begin
+        for i = 1:10, j=1:10
+            if i==j
+                #@test_throws AssertionError add_edge!(lg, 1, i, j)
             else
-                add_edge!(lg, level, i,j)
-                @test j ∈ lg.linklist[i][level]
+                level = rand(1:5)
+                if levelof(lg, i) < level || levelof(lg, j) < level
+                    #@test_throws AssertionError add_edge!(lg, level, i,j)
+                else
+                    add_edge!(lg, level, i,j)
+
+                    @test j ∈ [neighbors(lg,level,i)...]
+                end
             end
         end
     end
     @testset "neighbors" begin
         for i = 1:10
-            level = rand(1:5)
+            level = rand(1:10)
             if level > levelof(lg, i)
                 #@test_throws AssertionError neighbors(lg, i, level)
             else
-                @test neighbors(lg, level, i) == lg.linklist[i][level]
+                #retrieve neighbors
+                idx_offset = level > 1 ? lg.M0 + lg.M*(level-2) : 0
+                maxM = HNSW.max_connections(lg, level)
+                links = lg.linklist[i][idx_offset.+(1:maxM)]
+                links = links[links .> 0]
+                @test [neighbors(lg, level, i)...] == links
             end
         end
     end
 end
-
-# @testset "set_neighbors!" begin
-#     layer = SimpleGraph(1000)
-#     q = rand(1:1000)
-#     for i = 1:10
-#         connections = rand(1:1000, 20)
-#         HNSW.set_neighbors!(layer, q, connections)
-#         @test neighbors(layer, q) == sort(unique(connections))
-#     end
-# end
-#
-# @testset "select_neighbors" begin
-#     data = [rand(5) for i = 1:100]
-#     hnsw = HierarchicalNSW(data)
-#     #Query Point
-#     q = rand(5)
-#     C = HNSW.NeighborSet{Int32,Float64}()
-#     for i ∈ unique(rand(1:100, 20))
-#         insert!(C, HNSW.Neighbor(i, norm(q-data[i])))
-#     end
-#     M = 5
-#     l_c = 1 #meaningless here
-#
-#     #find M indices whose distances is closest to q
-#     @test HNSW.nearest(C,M) == HNSW.select_neighbors(hnsw, q,C,M,l_c)
-#
-#     #use a q index rather than point
-#     q = rand(1:100)
-#     C = [HNSW.Neighbor(i, norm(data[q]-data[i])) for i ∈ unique(rand(1:100, 20))]
-#     i = sortperm(data[getproperty.(C,:idx)]; by=(p->norm(p-data[q])))
-#     @test C[i][1:M] == HNSW.select_neighbors(hnsw, q,C,M,l_c)
-# end
-#
-# @testset "knn_search" begin
-#     data = [rand(5) for i = 1:2000]
-#     hnsw = HierarchicalNSW(data)
-#     for n = 1:10
-#         #Query Point
-#         q = rand(5)
-#         labels, = knn_search(hnsw, q, n, 20)
-#         idxs = sortperm(data, by=(x->norm(x-q)))[1:n]
-#         @test labels == idxs
-#     end
-# end

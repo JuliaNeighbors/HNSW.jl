@@ -7,11 +7,12 @@ version = "0.1.0"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
 LightGraphs = "093fc24a-ae57-5d10-9952-331d41423f4d"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 
 [extras]
 NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "NearestNeighbors", "StaticArrays"]
