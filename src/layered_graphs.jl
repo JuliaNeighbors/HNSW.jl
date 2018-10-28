@@ -44,8 +44,7 @@ function add_vertex!(lg::LayeredGraph{T}, i, level) where {T}
     return nothing
 end
 
-function add_edge!(lg::LayeredGraph, level, source::Integer, target::Integer)
-    M0, M = lg.M0, lg.M
+function add_edge!(lg, level, source::Integer, target::Integer)
     offset = index_offset(lg,level)
     for m ∈ 1:max_connections(lg, level)
         if lg.linklist[source][offset + m] == 0
@@ -55,13 +54,12 @@ function add_edge!(lg::LayeredGraph, level, source::Integer, target::Integer)
     end
     return false
 end
-
-add_edge!(lg, level, s::Neighbor, t) = add_edge!(lg, level, s.idx, t)
+add_edge!(lg, level, s::Neighbor, t)          = add_edge!(lg, level, s.idx, t)
 add_edge!(lg, level, s::Integer, t::Neighbor) = add_edge!(lg, level, s, t.idx)
 
+
 function replace_edge!(lg, level, source, target, newtarget)
-    M0, M = lg.M0, lg.M
-    offset = level > 1 ? M0 + M*(level-2) : 0
+    offset = index_offset(lg,level)
     for m ∈ 1:max_connections(lg, level)
         if lg.linklist[source][offset + m] == target
             lg.linklist[source][offset + m]  = newtarget
