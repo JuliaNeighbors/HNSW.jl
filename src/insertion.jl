@@ -59,33 +59,23 @@ function insert_point!(hnsw, q, l = get_random_level(hnsw.lgraph))
     return nothing
 end
 
-function search_layer(
-        hnsw,
-        q, # Query point
-        ep, # enter point + distance
-        ef, # number of elements to return
-        level)
-    lg = hnsw.lgraph
-    vl = get_list(hnsw.vlp)
-    visit!(vl, ep) #visited elements
-    C = NeighborSet(ep) #set of candidates
-    W = NeighborSet(ep) #dynamic list of found nearest neighbors
+function search_layer(hnsw, query, enter_point, num_points, level)
+    vl = get_list(hnsw.vlp) #Acquire VisitedList
+    visit!(vl, enter_point)
+    C = NeighborSet(enter_point) #set of candidates
+    W = NeighborSet(enter_point) #dynamic list of found nearest neighbors
     while length(C) > 0
-        c = pop_nearest!(C) # from q in C
-        if c.dist > furthest(W).dist #Stopping condition
-            break
-        end
+        c = pop_nearest!(C) # from query in C
+        c.dist < furthest(W).dist || break #Stopping condition
         #lock(lg.locklist[c.idx])
-            for e ∈ neighbors(lg, level, c)  #Update C and W
+            for e ∈ neighbors(hnsw.lgraph, level, c)
                 if !isvisited(vl, e)
                     visit!(vl, e)
-                    dist =  distance(hnsw,q,e)
-                    eN = Neighbor(e, dist)
-                    f = furthest(W)
-                    if eN.dist < f.dist || length(W) < ef
+                    eN = Neighbor(e, distance(hnsw,query,e))
+                    if eN.dist < furthest(W).dist || length(W) < num_points
                         insert!(C, eN)
-                        insert!(W, eN)
-                        if length(W) > ef
+                        insert!(W, eN) #add optional maxlength feature?
+                        if length(W) > num_points
                             pop_furthest!(W)
                         end
                     end
@@ -94,7 +84,7 @@ function search_layer(
         #unlock(lg.locklist[c.idx])
     end
     release_list(hnsw.vlp, vl)
-    return W #ef closest neighbors
+    return W #num_points closest neighbors
 end
 
 
