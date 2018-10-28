@@ -47,7 +47,7 @@ function search_layer(hnsw, query, enter_point, num_points, level)
                     if eN.dist < furthest(W).dist || length(W) < num_points
                         insert!(C, eN)
                         insert!(W, eN) #add optional maxlength feature?
-                        length(W) < num_points || pop_furthest!(W)
+                        length(W) > num_points && pop_furthest!(W)
                     end
                 end
             end
