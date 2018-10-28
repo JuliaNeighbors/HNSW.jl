@@ -1,8 +1,6 @@
-export HierarchicalNSW
-export add_to_graph!, set_ef!
-
-
-
+###########################################################################################
+#                           Hierarchical Navigable Small World                            #
+###########################################################################################
 mutable struct HierarchicalNSW{T, F, V, M}
     lgraph::LayeredGraph{T}
     data::V
@@ -14,6 +12,9 @@ mutable struct HierarchicalNSW{T, F, V, M}
     ef::Int
 end
 
+###########################################################################################
+#                                 Creating Graphs / Struct                                #
+###########################################################################################
 function HierarchicalNSW(data;
         metric=Euclidean(),
         M = 10, #5 to 48
@@ -31,8 +32,36 @@ function HierarchicalNSW(data;
         lg, data, ep, Mutex(), vlp, metric, efConstruction, ef)
 end
 
+"""
+    add_to_graph!(hnsw, indices, multithreading=false)
+Add `i ∈ indices` referring to `data[i]` into the graph.
+
+ATM does not check if already added.
+Adding index twice leads to segfault.
+"""
+function add_to_graph!(hnsw::HierarchicalNSW{T}, indices, multithreading=false) where {T}
+    #Does not check if index has already been added
+    if multithreading == false
+        for i ∈ indices
+            insert_point!(hnsw, T(i))
+        end
+    else
+        #levels = [get_random_level(hnsw) for i ∈ 1:maximum(indices)]
+        println("multithreading does not work yet")
+        #Threads.@threads for i ∈ 1:maximum(indices)#indices
+        #    insert_point!(hnsw, i, levels[i])
+        #end
+    end
+    return nothing
+end
+add_to_graph!(hnsw::HierarchicalNSW) = add_to_graph!(hnsw, eachindex(hnsw.data))
+
 
 set_ef!(hnsw::HierarchicalNSW, ef) = hnsw.ef = ef
+
+###########################################################################################
+#                                    Utility Functions                                    #
+###########################################################################################
 get_enter_point(hnsw::HierarchicalNSW) = hnsw.ep
 set_enter_point!(hnsw::HierarchicalNSW, ep) = hnsw.ep = ep
 get_top_layer(hnsw::HierarchicalNSW) = hnsw.lgraph.numlayers
@@ -40,7 +69,6 @@ get_top_layer(hnsw::HierarchicalNSW) = hnsw.lgraph.numlayers
 distance(hnsw, i, j) = @inbounds evaluate(hnsw.metric, hnsw.data[i], hnsw.data[j])
 distance(hnsw, i, q::AbstractVector) = @inbounds evaluate(hnsw.metric, hnsw.data[i], q)
 distance(hnsw, q::AbstractVector, j) = @inbounds evaluate(hnsw.metric, hnsw.data[j], q)
-
 
 function Base.show(io::IO, hnsw::HierarchicalNSW)
     lg = hnsw.lgraph

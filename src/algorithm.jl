@@ -1,29 +1,6 @@
-export knn_search
-
-"""
-    add_to_graph!(hnsw, indices, multithreading=false)
-Add `i ∈ indices` referring to `data[i]` into the graph.
-
-ATM does not check if already added.
-Adding index twice leads to segfault.
-"""
-function add_to_graph!(hnsw::HierarchicalNSW{T}, indices, multithreading=false) where {T}
-    #Does not check if index has already been added
-    if multithreading == false
-        for i ∈ indices
-            insert_point!(hnsw, T(i))
-        end
-    else
-        #levels = [get_random_level(hnsw) for i ∈ 1:maximum(indices)]
-        println("multithreading does not work yet")
-        #Threads.@threads for i ∈ 1:maximum(indices)#indices
-        #    insert_point!(hnsw, i, levels[i])
-        #end
-    end
-    return nothing
-end
-add_to_graph!(hnsw::HierarchicalNSW) = add_to_graph!(hnsw, eachindex(hnsw.data))
-
+###########################################################################################
+#                                    HNSW Algorithm                                       #
+###########################################################################################
 
 """
     insert_point!(hnsw, q, l = get_random_level(hnsw.lgraph))
@@ -100,4 +77,35 @@ function neighbor_heuristic(hnsw, level, candidates)
         good && insert!(chosen, e)
     end
     return chosen
+end
+
+###########################################################################################
+#                                       KNN Search                                        #
+###########################################################################################
+function knn_search(hnsw, q, K)
+    ef = max(K, hnsw.ef)
+    @assert length(q)==length(hnsw.data[1])
+    ep = get_enter_point(hnsw)
+    epN = Neighbor(ep, distance(hnsw, q, ep))
+    L = get_top_layer(hnsw) #layer of ep , top layer of hnsw
+    for level ∈ L:-1:2 # Iterate from top to second lowest
+        epN = search_layer(hnsw, q, epN, 1, level)[1]
+        #TODO: better upper layer implementation here as well
+    end
+    W = search_layer(hnsw, q, epN, ef, 1)
+    list = nearest(W, K)
+    idx = map(x->x.idx, list)
+    dist = map(x->x.dist, list)
+    return idx, dist# K nearest elements to q
+end
+
+function knn_search(hnsw::HierarchicalNSW{T,F},
+        q::AbstractVector{<:AbstractVector}, # query
+        K) where {T,F}
+    idxs = Vector{Vector{T}}(undef,length(q))
+    dists = Vector{Vector{F}}(undef,length(q))
+    for n = 1:length(q)
+        idxs[n], dists[n] = knn_search(hnsw, q[n], K)
+    end
+    idxs, dists
 end
