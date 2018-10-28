@@ -99,58 +99,22 @@ end
 
 
 
-function neighbor_heuristic(
-        hnsw,
-        level,
-        W) # candidate elements
+function neighbor_heuristic(hnsw, level, candidates)
     M = max_connections(hnsw.lgraph, level)
-    if length(W) <= M return W end
-    R = typeof(W)() #Selected Neighbors
+    length(candidates) <= M  || return candidates
 
-    for e ∈ W
-        if length(R) >= M break end
-        #Compute distances to already selected points
+    chosen = typeof(candidates)()
+    for e ∈ candidates
+        length(chosen) >= M  || break
+        #Heuristic:
         good = true
-        for r ∈ R
+        for r ∈ chosen
             if e.dist > distance(hnsw, e.idx, r.idx)
                 good=false
                 break
             end
         end
-        if good#e is closer to q compared to any element from R
-            insert!(R, e) # I know it comes first. Possible Op. `pushfirst!`
-        end
+        good && insert!(chosen, e)
     end
-    return R
+    return chosen
 end
-# function neighbor_heuristic(
-#         hnsw,
-#         level,
-#         W) # candidate elements
-#     M = max_connections(hnsw.lgraph, level)
-#     if length(W) <= M return W end
-#     R = typeof(W)() #Selected Neighbors
-#     W_d = typeof(W)() #Temporarily discarded candidates
-#
-#     for e ∈ W
-#         if length(R) >= M break end
-#         #Compute distances to already selected points
-#         good = true
-#         for r ∈ R
-#             if e.dist > distance(hnsw, e.idx, r.idx)
-#                 good=false
-#                 break
-#             end
-#         end
-#         if good#e is closer to q compared to any element from R
-#             insert!(R, e) # I know it comes first. Possible Op. `pushfirst!`
-#         else
-#             insert!(W_d, e)
-#         end
-#     end
-#     for w ∈ W_d
-#         if length(R) >= M break end
-#         insert!(R, w)
-#     end
-#     return R
-# end
