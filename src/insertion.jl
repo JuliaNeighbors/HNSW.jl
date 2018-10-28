@@ -47,7 +47,6 @@ function insert_point!(hnsw, query, l = get_random_level(hnsw.lgraph))
     end
     for level ∈ min(L,l):-1:1
         W = search_layer(hnsw, query, ep, hnsw.efConstruction, level)
-        W = neighbor_heuristic(hnsw, level, W)
         add_connections!(hnsw, level, query, W)
         ep = nearest(W)
     end

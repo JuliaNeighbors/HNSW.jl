@@ -108,6 +108,7 @@ levelof(lg::LayeredGraph, q) = 1 + (length(lg.linklist[q])-lg.M0) % lg.M
 function add_connections!(hnsw, level, q, W::NeighborSet)
     lg = hnsw.lgraph
     M = max_connections(lg, level)
+    W = neighbor_heuristic(hnsw, level, W)
     #set neighbors
     for n in W
         add_edge!(lg, level, q, n.idx)
