@@ -7,27 +7,42 @@
 Insert index `query` referring to data point `data[q]` into the graph.
 """
 function insert_point!(hnsw, query, l = get_random_level(hnsw.lgraph))
+    add_vertex!(hnsw.lgraph, query, l)
+
+    # Get enterpoint and highest level in a threadsafe way
     lock(hnsw.ep_lock)
         enter_point = get_enter_point(hnsw)
         L =  get_top_layer(hnsw)
-        add_vertex!(hnsw.lgraph, query, l)
+
+        # Special Case for the very first entry
         if enter_point == 0
             set_enter_point!(hnsw, query)
             unlock(hnsw.ep_lock)
             return nothing
         end
     unlock(hnsw.ep_lock)
+
     ep = Neighbor(enter_point, distance(hnsw, enter_point, query))
-    for level ∈ L:-1:l+1 #Find nearest point within each layer and traverse down
+
+    # Traverse through levels to l (assuming l < L)
+    for level ∈ L:-1:l+1
         W = search_layer(hnsw, query, ep, 1,level)
         ep = nearest(W) #nearest element from q in W
     end
+
+    # Insert query on all levels < min(L,l)
     for level ∈ min(L,l):-1:1
         W = search_layer(hnsw, query, ep, hnsw.efConstruction, level)
         add_connections!(hnsw, level, query, W)
         ep = nearest(W)
     end
-    l > L && set_enter_point!(hnsw, query) #another lock here
+
+    # Update enter point if inserted point has highest layer
+    if l > L
+        lock(hnsw.ep_lock)
+            set_enter_point!(hnsw, query)
+        unlock(hnsw.ep_lock)
+    end
     return nothing
 end
 
@@ -39,7 +54,7 @@ function search_layer(hnsw, query, enter_point, num_points, level)
     while length(C) > 0
         c = pop_nearest!(C) # from query in C
         c.dist > furthest(W).dist && break #Stopping condition
-        #lock(lg.locklist[c.idx])
+        lock(hnsw.lgraph.locklist[c.idx])
             for e ∈ neighbors(hnsw.lgraph, level, c)
                 if !isvisited(vl, e)
                     visit!(vl, e)
@@ -51,7 +66,7 @@ function search_layer(hnsw, query, enter_point, num_points, level)
                     end
                 end
             end
-        #unlock(lg.locklist[c.idx])
+        unlock(hnsw.lgraph.locklist[c.idx])
     end
     release_list(hnsw.vlp, vl)
     return W #num_points closest neighbors
@@ -90,7 +105,6 @@ function knn_search(hnsw, q, K)
     L = get_top_layer(hnsw) #layer of ep , top layer of hnsw
     for level ∈ L:-1:2 # Iterate from top to second lowest
         epN = search_layer(hnsw, q, epN, 1, level)[1]
-        #TODO: better upper layer implementation here as well
     end
     W = search_layer(hnsw, q, epN, ef, 1)
     list = nearest(W, K)

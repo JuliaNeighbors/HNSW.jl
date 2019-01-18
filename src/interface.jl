@@ -46,11 +46,10 @@ function add_to_graph!(hnsw::HierarchicalNSW{T}, indices, multithreading=false) 
             insert_point!(hnsw, T(i))
         end
     else
-        #levels = [get_random_level(hnsw) for i ∈ 1:maximum(indices)]
-        println("multithreading does not work yet")
-        #Threads.@threads for i ∈ 1:maximum(indices)#indices
-        #    insert_point!(hnsw, i, levels[i])
-        #end
+        levels = [get_random_level(hnsw.lgraph) for _ ∈ 1:maximum(indices)]
+        Threads.@threads for i ∈ indices
+            insert_point!(hnsw, i, levels[i])
+        end
     end
     return nothing
 end
@@ -63,12 +62,15 @@ set_ef!(hnsw::HierarchicalNSW, ef) = hnsw.ef = ef
 #                                    Utility Functions                                    #
 ###########################################################################################
 get_enter_point(hnsw::HierarchicalNSW) = hnsw.ep
-set_enter_point!(hnsw::HierarchicalNSW, ep) = hnsw.ep = ep
-get_top_layer(hnsw::HierarchicalNSW) = hnsw.lgraph.numlayers
+function set_enter_point!(hnsw::HierarchicalNSW, ep)
+    hnsw.ep = ep
+    hnsw.lgraph.numlayers = levelof(hnsw.lgraph, ep)
+end
+get_top_layer(hnsw::HierarchicalNSW) = hnsw.lgraph.numlayers#levelof(hnsw.lgraph, hnsw.ep)#hnsw.lgraph.numlayers
 
-distance(hnsw, i, j) = @inbounds evaluate(hnsw.metric, hnsw.data[i], hnsw.data[j])
-distance(hnsw, i, q::AbstractVector) = @inbounds evaluate(hnsw.metric, hnsw.data[i], q)
-distance(hnsw, q::AbstractVector, j) = @inbounds evaluate(hnsw.metric, hnsw.data[j], q)
+@inline distance(hnsw, i, j) = @inbounds evaluate(hnsw.metric, hnsw.data[i], hnsw.data[j])
+@inline distance(hnsw, i, q::AbstractVector) = @inbounds evaluate(hnsw.metric, hnsw.data[i], q)
+@inline distance(hnsw, q::AbstractVector, j) = @inbounds evaluate(hnsw.metric, hnsw.data[j], q)
 
 function Base.show(io::IO, hnsw::HierarchicalNSW)
     lg = hnsw.lgraph
