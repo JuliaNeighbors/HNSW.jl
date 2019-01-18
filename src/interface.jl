@@ -3,6 +3,7 @@
 ###########################################################################################
 mutable struct HierarchicalNSW{T, F, V, M}
     lgraph::LayeredGraph{T}
+    added::Vector{Bool}
     data::V
     ep::T
     entry_level::Int
@@ -30,26 +31,28 @@ function HierarchicalNSW(data;
     F = eltype(data[1])
     vlp = VisitedListPool(1,max_elements)
     return HierarchicalNSW{T,F,typeof(data),typeof(metric)}(
-        lg, data, ep, 0, Mutex(), vlp, metric, efConstruction, ef)
+        lg, fill(false, max_elements), data, ep, 0, Mutex(), vlp, metric, efConstruction, ef)
 end
 
 """
     add_to_graph!(hnsw, indices, multithreading=false)
 Add `i ∈ indices` referring to `data[i]` into the graph.
 
-ATM does not check if already added.
-Adding index twice leads to segfault.
+Indices already added previously will be ignored.
 """
-function add_to_graph!(hnsw::HierarchicalNSW{T}, indices, multithreading=false) where {T}
-    #Does not check if index has already been added
+function add_to_graph!(hnsw::HierarchicalNSW{T}, indices; multithreading=false) where {T}
+    any(hnsw.added[indices]) && @warn "Some of the points have already been added!"
+
     if multithreading == false
         for i ∈ indices
-            insert_point!(hnsw, T(i))
+            hnsw.added[i] || insert_point!(hnsw, T(i))
+            hnsw.added[i] = true
         end
     else
         levels = [get_random_level(hnsw.lgraph) for _ ∈ 1:maximum(indices)]
         Threads.@threads for i ∈ indices
-            insert_point!(hnsw, i, levels[i])
+            hnsw.added[i] || insert_point!(hnsw, T(i), levels[i])
+            hnsw.added[i] = true
         end
     end
     return nothing
