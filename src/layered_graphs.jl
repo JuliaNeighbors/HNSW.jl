@@ -40,7 +40,7 @@ end
 
 function add_vertex!(lg::LayeredGraph{T}, i, level) where {T}
     lg.linklist[i] = fill(zero(T), lg.M0 + (level-1)*lg.M)
-    lg.numlayers > level || (lg.numlayers = level)
+    #lg.numlayers > level || (lg.numlayers = level)
     return nothing
 end
 
