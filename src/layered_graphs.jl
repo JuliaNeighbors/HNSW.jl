@@ -55,17 +55,18 @@ add_edge!(lg, level, s::Neighbor, t)          = add_edge!(lg, level, s.idx, t)
 add_edge!(lg, level, s::Integer, t::Neighbor) = add_edge!(lg, level, s, t.idx)
 
 
-function replace_edge!(lg, level, source, target, newtarget)
-    offset = index_offset(lg,level)
-    for m ∈ 1:max_connections(lg, level)
-        if lg.linklist[source][offset + m] == target
-            lg.linklist[source][offset + m]  = newtarget
-            return true
-        end
+function set_edges!(lg, level, source, targets)
+    offset = index_offset(lg, level)
+    M = max_connections(lg, level)
+    T = length(targets)
+    for m ∈ 1:min(M,T)
+        lg.linklist[source][offset + m]  = targets[m].idx
     end
-    @warn "target link to be replaced was not found"
-    return false
+    for m ∈ T:M
+        lg.linklist[source][offset + m]  = 0 #type ?
+    end
 end
+set_edges!(lg, level, source::Neighbor, targets) = set_edges!(lg, level, source.idx, targets)
 
 ############################################################################################
 #                                  Utility Functions                                       #
@@ -119,27 +120,22 @@ function add_connections!(hnsw, level, query, candidates)
     lg = hnsw.lgraph
     M = max_connections(lg, level)
     W = neighbor_heuristic(hnsw, level, candidates)
-    #set neighbors
-    for n in W
-        add_edge!(lg, level, query, n)
-    end
+    #Set links from query
+    set_edges!(lg, level, query, W)
+    #set links to query
     for n in W
         q = Neighbor(query, n.dist)
         lock(lg.locklist[n.idx]) #lock() linklist of n here
             if   add_edge!(lg, level, n, q)
             else
-                #remove weakest link and replace it
-                #TODO: likely needs neighbor_heuristic here
-                weakest_link = q # dist to query
+                #conditionally remove weakest link and replace it
+                C = NeighborSet(q)
                 for c in neighbors(lg, level, n)
                     dist = distance(hnsw, n.idx, c)
-                    if weakest_link.dist < dist
-                        weakest_link = Neighbor(c, dist)
-                    end
+                    insert!(C, Neighbor(c, dist))
                 end
-                if weakest_link.dist > q.dist
-                    replace_edge!(lg, level, n.idx, weakest_link.idx, q.idx)
-                end
+                C = neighbor_heuristic(hnsw, level, C)
+                q ∈ C && set_edges!(lg, level, n, C)
             end
         unlock(lg.locklist[n.idx]) #unlock here
     end
