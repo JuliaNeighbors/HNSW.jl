@@ -9,18 +9,15 @@ Insert index `query` referring to data point `data[q]` into the graph.
 function insert_point!(hnsw, query, l = get_random_level(hnsw.lgraph))
     add_vertex!(hnsw.lgraph, query, l)
 
-    # Get enterpoint and highest level in a threadsafe way
-    lock(hnsw.ep_lock)
-        enter_point = get_enter_point(hnsw)
-        L =  get_entry_level(hnsw)
+    # Get enterpoint and highest level
+    enter_point = get_enter_point(hnsw)
+    L =  get_entry_level(hnsw)
 
-        # Special Case for the very first entry
-        if enter_point == 0
-            set_enter_point!(hnsw, query)
-            unlock(hnsw.ep_lock)
-            return nothing
-        end
-    unlock(hnsw.ep_lock)
+    # Special Case for the very first entry
+    if enter_point == 0
+        set_enter_point!(hnsw, query)
+        return nothing
+    end
 
     ep = Neighbor(enter_point, distance(hnsw, enter_point, query))
 
@@ -38,12 +35,7 @@ function insert_point!(hnsw, query, l = get_random_level(hnsw.lgraph))
     end
 
     # Update enter point if inserted point has highest layer
-    if l > L
-        lock(hnsw.ep_lock)
-            set_enter_point!(hnsw, query)
-        unlock(hnsw.ep_lock)
-    end
-    return nothing
+    l > L && set_enter_point!(hnsw, query)
 end
 
 function search_layer(hnsw, query, enter_point, num_points, level)
@@ -54,19 +46,17 @@ function search_layer(hnsw, query, enter_point, num_points, level)
     while length(C) > 0
         c = pop_nearest!(C) # from query in C
         c.dist > furthest(W).dist && break #Stopping condition
-        lock(hnsw.lgraph.locklist[c.idx])
-            for e ∈ neighbors(hnsw.lgraph, level, c)
-                if !isvisited(vl, e)
-                    visit!(vl, e)
-                    eN = Neighbor(e, distance(hnsw,query,e))
-                    if eN.dist < furthest(W).dist || length(W) < num_points
-                        insert!(C, eN)
-                        insert!(W, eN) #add optional maxlength feature?
-                        length(W) > num_points && pop_furthest!(W)
-                    end
+        for e ∈ neighbors(hnsw.lgraph, level, c)
+            if !isvisited(vl, e)
+                visit!(vl, e)
+                eN = Neighbor(e, distance(hnsw,query,e))
+                if eN.dist < furthest(W).dist || length(W) < num_points
+                    insert!(C, eN)
+                    insert!(W, eN) #add optional maxlength feature?
+                    length(W) > num_points && pop_furthest!(W)
                 end
             end
-        unlock(hnsw.lgraph.locklist[c.idx])
+        end
     end
     release_list(hnsw.vlp, vl)
     return W #num_points closest neighbors

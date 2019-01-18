@@ -7,7 +7,6 @@ mutable struct HierarchicalNSW{T, F, V, M}
     data::V
     ep::T
     entry_level::Int
-    ep_lock::Mutex
     vlp::VisitedListPool
     metric::M
     efConstruction::Int #size of dynamic candidate list
@@ -40,22 +39,12 @@ Add `i ∈ indices` referring to `data[i]` into the graph.
 
 Indices already added previously will be ignored.
 """
-function add_to_graph!(hnsw::HierarchicalNSW{T}, indices; multithreading=false) where {T}
+function add_to_graph!(hnsw::HierarchicalNSW{T}, indices) where {T}
     any(hnsw.added[indices]) && @warn "Some of the points have already been added!"
-
-    if multithreading == false
-        for i ∈ indices
-            hnsw.added[i] || insert_point!(hnsw, T(i))
-            hnsw.added[i] = true
-        end
-    else
-        levels = [get_random_level(hnsw.lgraph) for _ ∈ 1:maximum(indices)]
-        Threads.@threads for i ∈ indices
-            hnsw.added[i] || insert_point!(hnsw, T(i), levels[i])
-            hnsw.added[i] = true
-        end
+    for i ∈ indices
+        hnsw.added[i] || insert_point!(hnsw, T(i))
+        hnsw.added[i] = true
     end
-    return nothing
 end
 add_to_graph!(hnsw::HierarchicalNSW; kwargs...) = add_to_graph!(hnsw, eachindex(hnsw.data); kwargs...)
 

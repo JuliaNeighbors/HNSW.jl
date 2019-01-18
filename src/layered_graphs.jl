@@ -9,7 +9,6 @@ end
 
 struct LayeredGraph{T}
     linklist::LinkList{T}  #linklist[index][level][link]
-    locklist::Vector{Mutex}
     M0::Int
     M::Int
     m_L::Float64
@@ -29,7 +28,6 @@ nodes of the one below. `M0` is the maximum number of edges in the bottom layer.
 function LayeredGraph{T}(num_elements::Int, M, M0, m_L) where {T}
     LayeredGraph{T}(
         LinkList{T}(num_elements),
-        [Mutex() for i=1:num_elements],
         M,
         M0,
         m_L)
@@ -125,18 +123,16 @@ function add_connections!(hnsw, level, query, candidates)
     #set links to query
     for n in W
         q = Neighbor(query, n.dist)
-        lock(lg.locklist[n.idx]) #lock() linklist of n here
-            if   add_edge!(lg, level, n, q)
-            else
-                #conditionally remove weakest link and replace it
-                C = NeighborSet(q)
-                for c in neighbors(lg, level, n)
-                    dist = distance(hnsw, n.idx, c)
-                    insert!(C, Neighbor(c, dist))
-                end
-                C = neighbor_heuristic(hnsw, level, C)
-                q ∈ C && set_edges!(lg, level, n, C)
+        if   add_edge!(lg, level, n, q)
+        else
+            #conditionally remove weakest link and replace it
+            C = NeighborSet(q)
+            for c in neighbors(lg, level, n)
+                dist = distance(hnsw, n.idx, c)
+                insert!(C, Neighbor(c, dist))
             end
-        unlock(lg.locklist[n.idx]) #unlock here
+            C = neighbor_heuristic(hnsw, level, C)
+            q ∈ C && set_edges!(lg, level, n, C)
+        end
     end
 end
