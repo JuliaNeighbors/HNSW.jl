@@ -57,7 +57,7 @@ function add_to_graph!(hnsw::HierarchicalNSW{T}, indices; multithreading=false) 
     end
     return nothing
 end
-add_to_graph!(hnsw::HierarchicalNSW) = add_to_graph!(hnsw, eachindex(hnsw.data))
+add_to_graph!(hnsw::HierarchicalNSW; kwargs...) = add_to_graph!(hnsw, eachindex(hnsw.data); kwargs...)
 
 
 set_ef!(hnsw::HierarchicalNSW, ef) = hnsw.ef = ef
