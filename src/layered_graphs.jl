@@ -7,10 +7,9 @@ function LinkList{T}(num_elements::Int) where {T}
     Vector{Vector{T}}(undef, num_elements)
 end
 
-mutable struct LayeredGraph{T}
+struct LayeredGraph{T}
     linklist::LinkList{T}  #linklist[index][level][link]
     locklist::Vector{Mutex}
-    numlayers::Int
     M0::Int
     M::Int
     m_L::Float64
@@ -31,7 +30,6 @@ function LayeredGraph{T}(num_elements::Int, M, M0, m_L) where {T}
     LayeredGraph{T}(
         LinkList{T}(num_elements),
         [Mutex() for i=1:num_elements],
-        0,
         M,
         M0,
         m_L)
@@ -40,7 +38,6 @@ end
 
 function add_vertex!(lg::LayeredGraph{T}, i, level) where {T}
     lg.linklist[i] = fill(zero(T), lg.M0 + (level-1)*lg.M)
-    #lg.numlayers > level || (lg.numlayers = level)
     return nothing
 end
 
@@ -75,7 +72,6 @@ end
 ############################################################################################
 
 Base.length(lg::LayeredGraph) = lg.numlayers
-get_top_layer(lg::LayeredGraph) = lg.numlayers
 get_random_level(lg) = floor(Int, -log(rand())* lg.m_L) + 1
 max_connections(lg::LayeredGraph, level) = level==1 ? lg.M0 : lg.M
 index_offset(lg, level) = level > 1 ? lg.M0 + lg.M*(level-2) : 0

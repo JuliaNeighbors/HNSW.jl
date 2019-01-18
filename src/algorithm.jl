@@ -12,7 +12,7 @@ function insert_point!(hnsw, query, l = get_random_level(hnsw.lgraph))
     # Get enterpoint and highest level in a threadsafe way
     lock(hnsw.ep_lock)
         enter_point = get_enter_point(hnsw)
-        L =  get_top_layer(hnsw)
+        L =  get_entry_level(hnsw)
 
         # Special Case for the very first entry
         if enter_point == 0
@@ -102,7 +102,7 @@ function knn_search(hnsw, q, K)
     @assert length(q)==length(hnsw.data[1])
     ep = get_enter_point(hnsw)
     epN = Neighbor(ep, distance(hnsw, q, ep))
-    L = get_top_layer(hnsw) #layer of ep , top layer of hnsw
+    L = get_entry_level(hnsw) #layer of ep , top layer of hnsw
     for level ∈ L:-1:2 # Iterate from top to second lowest
         epN = search_layer(hnsw, q, epN, 1, level)[1]
     end

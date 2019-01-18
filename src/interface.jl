@@ -5,6 +5,7 @@ mutable struct HierarchicalNSW{T, F, V, M}
     lgraph::LayeredGraph{T}
     data::V
     ep::T
+    entry_level::Int
     ep_lock::Mutex
     vlp::VisitedListPool
     metric::M
@@ -29,7 +30,7 @@ function HierarchicalNSW(data;
     F = eltype(data[1])
     vlp = VisitedListPool(1,max_elements)
     return HierarchicalNSW{T,F,typeof(data),typeof(metric)}(
-        lg, data, ep, Mutex(), vlp, metric, efConstruction, ef)
+        lg, data, ep, 0, Mutex(), vlp, metric, efConstruction, ef)
 end
 
 """
@@ -64,9 +65,9 @@ set_ef!(hnsw::HierarchicalNSW, ef) = hnsw.ef = ef
 get_enter_point(hnsw::HierarchicalNSW) = hnsw.ep
 function set_enter_point!(hnsw::HierarchicalNSW, ep)
     hnsw.ep = ep
-    hnsw.lgraph.numlayers = levelof(hnsw.lgraph, ep)
+    hnsw.entry_level = levelof(hnsw.lgraph, ep)
 end
-get_top_layer(hnsw::HierarchicalNSW) = hnsw.lgraph.numlayers#levelof(hnsw.lgraph, hnsw.ep)#hnsw.lgraph.numlayers
+get_entry_level(hnsw::HierarchicalNSW) = hnsw.entry_level
 
 @inline distance(hnsw, i, j) = @inbounds evaluate(hnsw.metric, hnsw.data[i], hnsw.data[j])
 @inline distance(hnsw, i, q::AbstractVector) = @inbounds evaluate(hnsw.metric, hnsw.data[i], q)
@@ -74,8 +75,8 @@ get_top_layer(hnsw::HierarchicalNSW) = hnsw.lgraph.numlayers#levelof(hnsw.lgraph
 
 function Base.show(io::IO, hnsw::HierarchicalNSW)
     lg = hnsw.lgraph
-    println(io, "Hierarchical Navigable Small World with $(get_top_layer(lg)) layers")
-    for i = get_top_layer(lg):-1:1
+    println(io, "Hierarchical Navigable Small World with $(get_entry_level(hnsw)) layers")
+    for i = get_entry_level(hnsw):-1:1
         nodes = count(x->length(x)>=i, lg.linklist)
         λ = x -> length(x)>=i ? length(x[i]) : 0
         edges = sum(map(λ, lg.linklist))
