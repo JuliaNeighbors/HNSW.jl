@@ -12,6 +12,7 @@ Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [targets]
-test = ["Test", "NearestNeighbors", "StaticArrays"]
+test = ["Test", "NearestNeighbors", "StaticArrays", "Statistics"]
