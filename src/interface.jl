@@ -30,7 +30,7 @@ function HierarchicalNSW(data;
     F = eltype(data[1])
     vlp = VisitedListPool(1,max_elements)
     return HierarchicalNSW{T,F,typeof(data),typeof(metric)}(
-        lg, fill(false, max_elements), data, ep, 0, Mutex(), vlp, metric, efConstruction, ef)
+        lg, fill(false, max_elements), data, ep, 0, vlp, metric, efConstruction, ef)
 end
 
 """
