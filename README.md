@@ -66,3 +66,11 @@ k = 10
 # Find k (approximate) nearest neighbors for each of the queries
 idxs, dists = knn_search(hnsw, queries, k)
 ```
+
+## Multi-Threading
+A multi-threaded version of this algorithm is available. 
+To use it, checkout the branch `multi-threaded` and start the indexing with:
+
+ add_to_graph!(hnsw; multithreading=true)
+ 
+For multi-threaded searches add `multithreading=true` as a keyword argument to `knn_search`.
