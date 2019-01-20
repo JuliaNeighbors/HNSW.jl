@@ -117,7 +117,7 @@ function HierarchicalNSW(vector_type::Type;
     T = max_elements <= typemax(UInt32) ? UInt32 : UInt64
     lg = LayeredGraph{T}(init_length, M0, M, m_L)
     ep = T(0)
-    F = vector_type
+    F = eltype(vector_type)
     vlp = VisitedListPool(0, 0)
     return HierarchicalNSW{T,F,Vector{vector_type},typeof(metric)}(
         lg, Bool[], vector_type[], ep, 0, vlp, metric, efConstruction, ef)

@@ -28,13 +28,13 @@ using Test
     # is that when we add in several "batches" we are not going to visit the
     # same previous data points and thus the layers might look slightly different.
     # We thus skip the testing below, since exactly equal results cannot be guaranteed.
-    
+
     # Make one HNSW from all the datapoints in one go.
     # When we query these two HNSW they should always give same response.
     # Random.seed!(seed)
     # hnsw2 = HierarchicalNSW(alldata)
     # add_to_graph!(hnsw2)
-# 
+#
     # queries = [rand(Float32, dim) for n ∈ 1:num_queries]
     # for query in queries
     #     k = rand(1:1)
@@ -65,4 +65,8 @@ end
 
     idx, _ = knn_search(hnsw, data[begin], 10)
     @test !isempty(intersect([1, 1 + num_elements], idx))
+
+    idx, _ = knn_search(hnsw, data[1:10], 10; multithreading=true)
+
+    @test !isempty(intersect([1, 1 + num_elements], idx[1]))
 end
