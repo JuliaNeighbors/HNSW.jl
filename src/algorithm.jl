@@ -115,11 +115,17 @@ end
 
 function knn_search(hnsw::HierarchicalNSW{T,F},
         q::AbstractVector{<:AbstractVector}, # query
-        K) where {T,F}
+        K; multithreading=false) where {T,F}
     idxs = Vector{Vector{T}}(undef,length(q))
     dists = Vector{Vector{F}}(undef,length(q))
-    for n = 1:length(q)
-        idxs[n], dists[n] = knn_search(hnsw, q[n], K)
+    if multithreading
+        Threads.@threads for n = 1:length(q)
+            idxs[n], dists[n] = knn_search(hnsw, q[n], K)
+        end
+    else
+        for n = 1:length(q)
+            idxs[n], dists[n] = knn_search(hnsw, q[n], K)
+        end
     end
     idxs, dists
 end
