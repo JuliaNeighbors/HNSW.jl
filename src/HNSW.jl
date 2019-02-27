@@ -1,5 +1,4 @@
 module HNSW
-    import Base.Threads: Mutex
     using LinearAlgebra
     using Reexport
     @reexport using Distances
