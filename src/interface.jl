@@ -67,11 +67,13 @@ get_entry_level(hnsw::HierarchicalNSW) = hnsw.entry_level
 
 function Base.show(io::IO, hnsw::HierarchicalNSW)
     lg = hnsw.lgraph
+    maxpoints = length(lg.linklist)
+    addedpoints = count(isassigned.(Ref(lg.linklist), 1:maxpoints))
     println(io, "Hierarchical Navigable Small World with $(get_entry_level(hnsw)) layers")
-    for i = get_entry_level(hnsw):-1:1
-        nodes = count(x->length(x)>=i, lg.linklist)
-        λ = x -> length(x)>=i ? length(x[i]) : 0
-        edges = sum(map(λ, lg.linklist))
-        println(io, "Layer $i has $(nodes) nodes and $edges edges")
-    end
+    println(io, "$addedpoints of $maxpoints have been added to the index")
+    println(io, "Index parameters are:")
+    println(io, "\t M0 = $(lg.M0), M = $(lg.M), m_L ≈ $(round(lg.m_L,digits=1))")
+    println(io, "\t metric = $(hnsw.metric)")
+    println(io, "\t efConstruction = $(hnsw.efConstruction), ef = $(hnsw.ef)")
+
 end
