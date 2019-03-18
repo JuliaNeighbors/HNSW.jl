@@ -60,7 +60,7 @@ function set_edges!(lg, level, source, targets)
     for m ∈ 1:min(M,T)
         lg.linklist[source][offset + m]  = targets[m].idx
     end
-    for m ∈ T:M
+    for m ∈ T+1:M
         lg.linklist[source][offset + m]  = 0 #type ?
     end
 end
