@@ -7,28 +7,35 @@
 Insert index `query` referring to data point `data[q]` into the graph.
 """
 function insert_point!(hnsw, query, l = get_random_level(hnsw.lgraph))
-    lock(hnsw.ep_lock)
-        enter_point = get_enter_point(hnsw)
-        L =  get_top_layer(hnsw)
-        add_vertex!(hnsw.lgraph, query, l)
-        if enter_point == 0
-            set_enter_point!(hnsw, query)
-            unlock(hnsw.ep_lock)
-            return nothing
-        end
-    unlock(hnsw.ep_lock)
+    add_vertex!(hnsw.lgraph, query, l)
+
+    # Get enterpoint and highest level
+    enter_point = get_enter_point(hnsw)
+    L =  get_entry_level(hnsw)
+
+    # Special Case for the very first entry
+    if enter_point == 0
+        set_enter_point!(hnsw, query)
+        return nothing
+    end
+
     ep = Neighbor(enter_point, distance(hnsw, enter_point, query))
-    for level ∈ L:-1:l+1 #Find nearest point within each layer and traverse down
+
+    # Traverse through levels to l (assuming l < L)
+    for level ∈ L:-1:l+1
         W = search_layer(hnsw, query, ep, 1,level)
         ep = nearest(W) #nearest element from q in W
     end
+
+    # Insert query on all levels < min(L,l)
     for level ∈ min(L,l):-1:1
         W = search_layer(hnsw, query, ep, hnsw.efConstruction, level)
         add_connections!(hnsw, level, query, W)
         ep = nearest(W)
     end
-    l > L && set_enter_point!(hnsw, query) #another lock here
-    return nothing
+
+    # Update enter point if inserted point has highest layer
+    l > L && set_enter_point!(hnsw, query)
 end
 
 function search_layer(hnsw, query, enter_point, num_points, level)
@@ -39,19 +46,17 @@ function search_layer(hnsw, query, enter_point, num_points, level)
     while length(C) > 0
         c = pop_nearest!(C) # from query in C
         c.dist > furthest(W).dist && break #Stopping condition
-        #lock(lg.locklist[c.idx])
-            for e ∈ neighbors(hnsw.lgraph, level, c)
-                if !isvisited(vl, e)
-                    visit!(vl, e)
-                    eN = Neighbor(e, distance(hnsw,query,e))
-                    if eN.dist < furthest(W).dist || length(W) < num_points
-                        insert!(C, eN)
-                        insert!(W, eN) #add optional maxlength feature?
-                        length(W) > num_points && pop_furthest!(W)
-                    end
+        for e ∈ neighbors(hnsw.lgraph, level, c)
+            if !isvisited(vl, e)
+                visit!(vl, e)
+                eN = Neighbor(e, distance(hnsw,query,e))
+                if eN.dist < furthest(W).dist || length(W) < num_points
+                    insert!(C, eN)
+                    insert!(W, eN) #add optional maxlength feature?
+                    length(W) > num_points && pop_furthest!(W)
                 end
             end
-        #unlock(lg.locklist[c.idx])
+        end
     end
     release_list(hnsw.vlp, vl)
     return W #num_points closest neighbors
@@ -87,10 +92,9 @@ function knn_search(hnsw, q, K)
     @assert length(q)==length(hnsw.data[1])
     ep = get_enter_point(hnsw)
     epN = Neighbor(ep, distance(hnsw, q, ep))
-    L = get_top_layer(hnsw) #layer of ep , top layer of hnsw
+    L = get_entry_level(hnsw) #layer of ep , top layer of hnsw
     for level ∈ L:-1:2 # Iterate from top to second lowest
         epN = search_layer(hnsw, q, epN, 1, level)[1]
-        #TODO: better upper layer implementation here as well
     end
     W = search_layer(hnsw, q, epN, ef, 1)
     list = nearest(W, K)

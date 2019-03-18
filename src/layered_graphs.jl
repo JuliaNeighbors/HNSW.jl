@@ -7,10 +7,8 @@ function LinkList{T}(num_elements::Int) where {T}
     Vector{Vector{T}}(undef, num_elements)
 end
 
-mutable struct LayeredGraph{T}
+struct LayeredGraph{T}
     linklist::LinkList{T}  #linklist[index][level][link]
-    locklist::Vector{Mutex}
-    numlayers::Int
     M0::Int
     M::Int
     m_L::Float64
@@ -30,8 +28,6 @@ nodes of the one below. `M0` is the maximum number of edges in the bottom layer.
 function LayeredGraph{T}(num_elements::Int, M, M0, m_L) where {T}
     LayeredGraph{T}(
         LinkList{T}(num_elements),
-        [Mutex() for i=1:num_elements],
-        0,
         M,
         M0,
         m_L)
@@ -40,7 +36,6 @@ end
 
 function add_vertex!(lg::LayeredGraph{T}, i, level) where {T}
     lg.linklist[i] = fill(zero(T), lg.M0 + (level-1)*lg.M)
-    lg.numlayers > level || (lg.numlayers = level)
     return nothing
 end
 
@@ -58,24 +53,24 @@ add_edge!(lg, level, s::Neighbor, t)          = add_edge!(lg, level, s.idx, t)
 add_edge!(lg, level, s::Integer, t::Neighbor) = add_edge!(lg, level, s, t.idx)
 
 
-function replace_edge!(lg, level, source, target, newtarget)
-    offset = index_offset(lg,level)
-    for m ∈ 1:max_connections(lg, level)
-        if lg.linklist[source][offset + m] == target
-            lg.linklist[source][offset + m]  = newtarget
-            return true
-        end
+function set_edges!(lg, level, source, targets)
+    offset = index_offset(lg, level)
+    M = max_connections(lg, level)
+    T = length(targets)
+    for m ∈ 1:min(M,T)
+        lg.linklist[source][offset + m]  = targets[m].idx
     end
-    @warn "target link to be replaced was not found"
-    return false
+    for m ∈ T+1:M
+        lg.linklist[source][offset + m]  = 0 #type ?
+    end
 end
+set_edges!(lg, level, source::Neighbor, targets) = set_edges!(lg, level, source.idx, targets)
 
 ############################################################################################
 #                                  Utility Functions                                       #
 ############################################################################################
 
 Base.length(lg::LayeredGraph) = lg.numlayers
-get_top_layer(lg::LayeredGraph) = lg.numlayers
 get_random_level(lg) = floor(Int, -log(rand())* lg.m_L) + 1
 max_connections(lg::LayeredGraph, level) = level==1 ? lg.M0 : lg.M
 index_offset(lg, level) = level > 1 ? lg.M0 + lg.M*(level-2) : 0
@@ -123,28 +118,21 @@ function add_connections!(hnsw, level, query, candidates)
     lg = hnsw.lgraph
     M = max_connections(lg, level)
     W = neighbor_heuristic(hnsw, level, candidates)
-    #set neighbors
-    for n in W
-        add_edge!(lg, level, query, n)
-    end
+    #Set links from query
+    set_edges!(lg, level, query, W)
+    #set links to query
     for n in W
         q = Neighbor(query, n.dist)
-        lock(lg.locklist[n.idx]) #lock() linklist of n here
-            if   add_edge!(lg, level, n, q)
-            else
-                #remove weakest link and replace it
-                #TODO: likely needs neighbor_heuristic here
-                weakest_link = q # dist to query
-                for c in neighbors(lg, level, n)
-                    dist = distance(hnsw, n.idx, c)
-                    if weakest_link.dist < dist
-                        weakest_link = Neighbor(c, dist)
-                    end
-                end
-                if weakest_link.dist > q.dist
-                    replace_edge!(lg, level, n.idx, weakest_link.idx, q.idx)
-                end
+        if   add_edge!(lg, level, n, q)
+        else
+            #conditionally remove weakest link and replace it
+            C = NeighborSet(q)
+            for c in neighbors(lg, level, n)
+                dist = distance(hnsw, n.idx, c)
+                insert!(C, Neighbor(c, dist))
             end
-        unlock(lg.locklist[n.idx]) #unlock here
+            C = neighbor_heuristic(hnsw, level, C)
+            q ∈ C && set_edges!(lg, level, n, C)
+        end
     end
 end

@@ -3,9 +3,10 @@
 ###########################################################################################
 mutable struct HierarchicalNSW{T, F, V, M}
     lgraph::LayeredGraph{T}
+    added::Vector{Bool}
     data::V
     ep::T
-    ep_lock::Mutex
+    entry_level::Int
     vlp::VisitedListPool
     metric::M
     efConstruction::Int #size of dynamic candidate list
@@ -29,32 +30,23 @@ function HierarchicalNSW(data;
     F = eltype(data[1])
     vlp = VisitedListPool(1,max_elements)
     return HierarchicalNSW{T,F,typeof(data),typeof(metric)}(
-        lg, data, ep, Mutex(), vlp, metric, efConstruction, ef)
+        lg, fill(false, max_elements), data, ep, 0, vlp, metric, efConstruction, ef)
 end
 
 """
     add_to_graph!(hnsw, indices, multithreading=false)
 Add `i ∈ indices` referring to `data[i]` into the graph.
 
-ATM does not check if already added.
-Adding index twice leads to segfault.
+Indices already added previously will be ignored.
 """
-function add_to_graph!(hnsw::HierarchicalNSW{T}, indices, multithreading=false) where {T}
-    #Does not check if index has already been added
-    if multithreading == false
-        for i ∈ indices
-            insert_point!(hnsw, T(i))
-        end
-    else
-        #levels = [get_random_level(hnsw) for i ∈ 1:maximum(indices)]
-        println("multithreading does not work yet")
-        #Threads.@threads for i ∈ 1:maximum(indices)#indices
-        #    insert_point!(hnsw, i, levels[i])
-        #end
+function add_to_graph!(hnsw::HierarchicalNSW{T}, indices) where {T}
+    any(hnsw.added[indices]) && @warn "Some of the points have already been added!"
+    for i ∈ indices
+        hnsw.added[i] || insert_point!(hnsw, T(i))
+        hnsw.added[i] = true
     end
-    return nothing
 end
-add_to_graph!(hnsw::HierarchicalNSW) = add_to_graph!(hnsw, eachindex(hnsw.data))
+add_to_graph!(hnsw::HierarchicalNSW; kwargs...) = add_to_graph!(hnsw, eachindex(hnsw.data); kwargs...)
 
 
 set_ef!(hnsw::HierarchicalNSW, ef) = hnsw.ef = ef
@@ -63,17 +55,20 @@ set_ef!(hnsw::HierarchicalNSW, ef) = hnsw.ef = ef
 #                                    Utility Functions                                    #
 ###########################################################################################
 get_enter_point(hnsw::HierarchicalNSW) = hnsw.ep
-set_enter_point!(hnsw::HierarchicalNSW, ep) = hnsw.ep = ep
-get_top_layer(hnsw::HierarchicalNSW) = hnsw.lgraph.numlayers
+function set_enter_point!(hnsw::HierarchicalNSW, ep)
+    hnsw.ep = ep
+    hnsw.entry_level = levelof(hnsw.lgraph, ep)
+end
+get_entry_level(hnsw::HierarchicalNSW) = hnsw.entry_level
 
-distance(hnsw, i, j) = @inbounds evaluate(hnsw.metric, hnsw.data[i], hnsw.data[j])
-distance(hnsw, i, q::AbstractVector) = @inbounds evaluate(hnsw.metric, hnsw.data[i], q)
-distance(hnsw, q::AbstractVector, j) = @inbounds evaluate(hnsw.metric, hnsw.data[j], q)
+@inline distance(hnsw, i, j) = @inbounds evaluate(hnsw.metric, hnsw.data[i], hnsw.data[j])
+@inline distance(hnsw, i, q::AbstractVector) = @inbounds evaluate(hnsw.metric, hnsw.data[i], q)
+@inline distance(hnsw, q::AbstractVector, j) = @inbounds evaluate(hnsw.metric, hnsw.data[j], q)
 
 function Base.show(io::IO, hnsw::HierarchicalNSW)
     lg = hnsw.lgraph
-    println(io, "Hierarchical Navigable Small World with $(get_top_layer(lg)) layers")
-    for i = get_top_layer(lg):-1:1
+    println(io, "Hierarchical Navigable Small World with $(get_entry_level(hnsw)) layers")
+    for i = get_entry_level(hnsw):-1:1
         nodes = count(x->length(x)>=i, lg.linklist)
         λ = x -> length(x)>=i ? length(x[i]) : 0
         edges = sum(map(λ, lg.linklist))
