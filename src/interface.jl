@@ -45,6 +45,7 @@ function add_to_graph!(hnsw::HierarchicalNSW{T}, indices) where {T}
         hnsw.added[i] || insert_point!(hnsw, T(i))
         hnsw.added[i] = true
     end
+    hnsw
 end
 add_to_graph!(hnsw::HierarchicalNSW; kwargs...) = add_to_graph!(hnsw, eachindex(hnsw.data); kwargs...)
 
