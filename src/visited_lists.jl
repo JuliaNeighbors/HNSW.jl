@@ -29,10 +29,9 @@ visit!(vl::VisitedList, idx::Integer) = vl.list[idx] = vl.visited_value
 visit!(vl::VisitedList, q::Neighbor) = visit!(vl, q.idx)
 
 ## Multithreaded pool-management of VisitedList's
-mutable struct VisitedListPool
+struct VisitedListPool
     pool::Vector{VisitedList}
     num_elements::Int
-    poolguard::Threads.Mutex
 end
 
 """
@@ -43,25 +42,21 @@ A thread-stable container for multiple `VisitedList`s initialized with
 To retrieve a list, call `get_list(vlp::VisitedListPool)`,
 and to release ist, call `release_list(vlp, vl::VisitedList)`.
 """
-function VisitedListPool(num_lists, num_elements)
+function VisitedListPool(num_lists::Real, num_elements::Real)
     pool = [VisitedList(num_elements) for n=1:num_lists]
-    VisitedListPool(pool, num_elements, Threads.Mutex())
+    VisitedListPool(pool, num_elements)
 end
 
 function get_list(vlp::VisitedListPool)
-    lock(vlp.poolguard)
-        if length(vlp.pool) > 0
-            vl = pop!(vlp.pool)
-            reset!(vl)
-        else
-            vl = VisitedList(vlp.num_elements)
-        end
-    unlock(vlp.poolguard)
+    if length(vlp.pool) > 0
+        vl = pop!(vlp.pool)
+        reset!(vl)
+    else
+        vl = VisitedList(vlp.num_elements)
+    end
     return vl
 end
 
 function release_list(vlp::VisitedListPool, vl::VisitedList)
-    lock(vlp.poolguard)
-        push!(vlp.pool,vl)
-    unlock(vlp.poolguard)
+    push!(vlp.pool,vl)
 end
