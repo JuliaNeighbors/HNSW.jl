@@ -74,7 +74,7 @@ Base.length(lg::LayeredGraph) = lg.numlayers
 get_random_level(lg) = floor(Int, -log(rand())* lg.m_L) + 1
 max_connections(lg::LayeredGraph, level) = level==1 ? lg.M0 : lg.M
 index_offset(lg, level) = level > 1 ? lg.M0 + lg.M*(level-2) : 0
-levelof(lg::LayeredGraph, q) = 1 + (length(lg.linklist[q])-lg.M0) % lg.M
+levelof(lg::LayeredGraph, q) = 1 + (length(lg.linklist[q])-lg.M0) ÷ lg.M
 
 ############################################################################################
 #                              Neighbors / Link Iteration                                  #
