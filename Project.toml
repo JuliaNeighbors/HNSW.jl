@@ -10,8 +10,8 @@ Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 
 [compat]
 julia = "1"
-Distances = "≧ 0.8"
-Reexport = "≧ 0.2"
+Distances = "≥ 0.8"
+Reexport = "≥ 0.2"
 
 [extras]
 NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
