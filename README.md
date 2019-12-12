@@ -59,6 +59,13 @@ hnsw = HierarchicalNSW(data; efConstruction=100, M=16, ef=50)
 #Optionally pass a subset of the indices in data to partially construct the graph
 add_to_graph!(hnsw)
 
+# optionally with a progress notification:
+# step = (num_elements) ÷ 100
+# add_to_graph!(hnsw) do i
+#   if iszero(i % step)
+#     @info "Processed: $(i ÷ step)%"
+#   end
+# end
 
 queries = [rand(dim) for i=1:1000]
 
@@ -68,7 +75,7 @@ idxs, dists = knn_search(hnsw, queries, k)
 ```
 
 ## Multi-Threading
-A multi-threaded version of this algorithm is available. 
+A multi-threaded version of this algorithm is available.
 To use it, checkout the branch `multi-threaded` and start the indexing with:
 ```julia
  add_to_graph!(hnsw; multithreading=true)

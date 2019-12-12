@@ -46,7 +46,12 @@ using Test
         efConstruction = 20
         M = 5
         hnsw = HierarchicalNSW(data; efConstruction=efConstruction, M=M)
-        add_to_graph!(hnsw)
+        check_counter = 0
+        add_to_graph!(hnsw) do i
+            check_counter += i
+        end
+        @test check_counter == (1 + num_elements) * num_elements ÷ 2
+
         set_ef!(hnsw, 2)
         realidxs, realdists = knn(tree, queries, k)
         idxs, dists = knn_search(hnsw, queries, k)
