@@ -34,21 +34,38 @@ function HierarchicalNSW(data;
 end
 
 """
-    add_to_graph!(hnsw, indices, multithreading=false)
+    add_to_graph!(notify_func, hnsw, indices, multithreading=false)
+
 Add `i ∈ indices` referring to `data[i]` into the graph.
+
+`notify_func(i)` provides an interface for a progress notification by current index.
 
 Indices already added previously will be ignored.
 """
-function add_to_graph!(hnsw::HierarchicalNSW{T}, indices) where {T}
+function add_to_graph!(notify_func::Function,
+                       hnsw::HierarchicalNSW{T}, indices) where {T}
     any(hnsw.added[indices]) && @warn "Some of the points have already been added!"
     for i ∈ indices
         hnsw.added[i] || insert_point!(hnsw, T(i))
         hnsw.added[i] = true
+        notify_func(i)
     end
     hnsw
 end
-add_to_graph!(hnsw::HierarchicalNSW; kwargs...) = add_to_graph!(hnsw, eachindex(hnsw.data); kwargs...)
 
+"""
+    add_to_graph!(hnsw, indices)
+
+short form of `add_to_graph!(notify_func, hnsw, indices)`
+"""
+add_to_graph!(hnsw::HierarchicalNSW{T}, indices) where {T} =
+    add_to_graph!(identity, hnsw, indices)
+
+add_to_graph!(notify_func::Function, hnsw::HierarchicalNSW; kwargs...) =
+    add_to_graph!(notify_func, hnsw, eachindex(hnsw.data); kwargs...)
+
+add_to_graph!(hnsw::HierarchicalNSW; kwargs...) =
+    add_to_graph!(identity, hnsw; kwargs...)
 
 set_ef!(hnsw::HierarchicalNSW, ef) = hnsw.ef = ef
 
