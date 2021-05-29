@@ -1,7 +1,7 @@
 name = "HNSW"
 uuid = "540f64fa-c57e-11e8-081c-41422cda4629"
 authors = ["Jonas Isensee <jonas.isensee@web.de>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
@@ -10,7 +10,7 @@ Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 
 [compat]
 julia = "1"
-Distances = "0.8, 1"
+Distances = "0.8 - 1"
 Reexport = "0.2, 1"
 
 [extras]
