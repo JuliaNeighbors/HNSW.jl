@@ -50,7 +50,7 @@ function search_layer(hnsw, query, enter_point, num_points, level)
             if !isvisited(vl, e)
                 visit!(vl, e)
                 eN = Neighbor(e, distance(hnsw,query,e))
-                if eN.dist < furthest(W).dist || length(W) < num_points
+                if length(W) < num_points || eN.dist < furthest(W).dist
                     insert!(C, eN)
                     insert!(W, eN) #add optional maxlength feature?
                     length(W) > num_points && pop_furthest!(W)
@@ -108,7 +108,7 @@ function knn_search(hnsw::HierarchicalNSW{T,F},
         K) where {T,F}
     idxs = Vector{Vector{T}}(undef,length(q))
     dists = Vector{Vector{F}}(undef,length(q))
-    for n = 1:length(q)
+    @inbounds for n = 1:length(q)
         idxs[n], dists[n] = knn_search(hnsw, q[n], K)
     end
     idxs, dists
