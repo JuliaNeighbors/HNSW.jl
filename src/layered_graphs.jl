@@ -41,9 +41,10 @@ end
 
 function add_edge!(lg, level, source::Integer, target::Integer)
     offset = index_offset(lg,level)
-    for m ∈ 1:max_connections(lg, level)
-        if lg.linklist[source][offset + m] == 0
-            lg.linklist[source][offset + m]  = target
+    links = lg.linklist[source]
+    @inbounds for m ∈ 1:max_connections(lg, level)
+        if links[offset + m] == 0
+            links[offset + m]  = target
             return true
         end
     end
@@ -57,11 +58,12 @@ function set_edges!(lg, level, source, targets)
     offset = index_offset(lg, level)
     M = max_connections(lg, level)
     T = length(targets)
-    for m ∈ 1:min(M,T)
-        lg.linklist[source][offset + m]  = targets[m].idx
+    links = lg.linklist[source]
+    @inbounds for m ∈ 1:min(M,T)
+        links[offset + m]  = targets[m].idx
     end
-    for m ∈ T+1:M
-        lg.linklist[source][offset + m]  = 0 #type ?
+    @inbounds for m ∈ T+1:M
+        links[offset + m]  = 0 #type ?
     end
 end
 set_edges!(lg, level, source::Neighbor, targets) = set_edges!(lg, level, source.idx, targets)
@@ -123,8 +125,7 @@ function add_connections!(hnsw, level, query, candidates)
     #set links to query
     for n in W
         q = Neighbor(query, n.dist)
-        if   add_edge!(lg, level, n, q)
-        else
+        if ! add_edge!(lg, level, n, q)
             #conditionally remove weakest link and replace it
             C = NeighborSet(q)
             for c in neighbors(lg, level, n)

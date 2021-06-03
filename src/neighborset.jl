@@ -51,7 +51,4 @@ function Base.insert!(ns::NeighborSet, n::Neighbor)
     return nothing
 end
 
-function nearest(ns::NeighborSet, k)
-    k = min(k, length(ns))
-    return ns.neighbor[1:k]
-end
+nearest(ns::NeighborSet, k) = ns.neighbor[1:min(k, length(ns))]
