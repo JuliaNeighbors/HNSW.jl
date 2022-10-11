@@ -16,6 +16,13 @@ To reset the list, call 'reset!(vl)'.
 """
 VisitedList(num_elements) = VisitedList(Vector{UInt8}(fill(zero(UInt8),num_elements)),1)
 
+function extend!(vl::VisitedList, total_num_elements::Integer)
+    z = zero(eltype(vl.list))
+    for _ in (length(vl.list)+1):total_num_elements
+        push!(vl.list, z)
+    end
+end
+
 function reset!(vl::VisitedList)
     vl.visited_value += one(UInt8)
     if vl.visited_value == zero(UInt8)
@@ -29,7 +36,7 @@ visit!(vl::VisitedList, idx::Integer) = vl.list[idx] = vl.visited_value
 visit!(vl::VisitedList, q::Neighbor) = visit!(vl, q.idx)
 
 ## Multithreaded pool-management of VisitedList's
-struct VisitedListPool
+mutable struct VisitedListPool
     pool::Vector{VisitedList}
     num_elements::Int
 end
@@ -45,6 +52,13 @@ and to release ist, call `release_list(vlp, vl::VisitedList)`.
 function VisitedListPool(num_lists::Real, num_elements::Real)
     pool = [VisitedList(num_elements) for n=1:num_lists]
     VisitedListPool(pool, num_elements)
+end
+
+function extend!(vlp::VisitedListPool, total_num_elements::Integer)
+    for vl in vlp.pool
+        extend!(vl, total_num_elements)
+    end
+    vlp.num_elements = total_num_elements
 end
 
 function get_list(vlp::VisitedListPool)

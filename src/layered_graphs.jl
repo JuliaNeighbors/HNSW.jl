@@ -7,6 +7,12 @@ function LinkList{T}(num_elements::Int) where {T}
     Vector{Vector{T}}(undef, num_elements)
 end
 
+function extend!(linklist::LinkList{T}, newindex::Integer) where {T}
+    for _ in (length(linklist)+1):newindex
+        push!(linklist, T[])
+    end
+end
+
 struct LayeredGraph{T}
     linklist::LinkList{T}  #linklist[index][level][link]
     M0::Int
@@ -14,6 +20,9 @@ struct LayeredGraph{T}
     m_L::Float64
 end
 
+function extend!(lgraph::LayeredGraph{T}, newindex::Integer) where {T}
+    extend!(lgraph.linklist, newindex)
+end
 
 
 """

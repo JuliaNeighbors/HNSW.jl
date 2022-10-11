@@ -69,6 +69,42 @@ add_to_graph!(hnsw::HierarchicalNSW; kwargs...) =
 
 set_ef!(hnsw::HierarchicalNSW, ef) = hnsw.ef = ef
 
+"""
+    add!(hnsw, newdata)
+
+Add new data to the graph.
+"""
+function add!(hnsw::HierarchicalNSW, newdata::Vector{D}) where D
+    # Must be of same type as existing data
+    @assert eltype(hnsw.data) == D
+
+    # Get indices to new data and then extend the layered graph
+    # and the added vector so we can store info about them.
+    numnew = length(newdata)
+    startindex = length(hnsw.data) + 1
+    endindex = startindex + numnew - 1
+    extend_added!(hnsw, endindex)
+    extend!(hnsw.lgraph, endindex)
+    extend!(hnsw.vlp, endindex)
+
+    # Now add the new data at end of our existing data
+    for d in newdata
+        push!(hnsw.data, d)
+    end
+
+    # Now we can add the datum to the graph, as usual
+    add_to_graph!(hnsw, startindex:endindex)
+end
+
+add!(hnsw::HierarchicalNSW, newdata::AbstractVector{D}) where D =
+    add!(hnsw, collect(newdata))
+
+function extend_added!(hnsw::HierarchicalNSW, newindex::Integer)
+    for _ in (length(hnsw.added)+1):newindex
+        push!(hnsw.added, false)
+    end
+end
+
 ###########################################################################################
 #                                    Utility Functions                                    #
 ###########################################################################################
