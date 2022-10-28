@@ -82,8 +82,8 @@ get_entry_level(hnsw::HierarchicalNSW) = hnsw.entry_level
 @inline distance(hnsw, i, j) = @inbounds evaluate(hnsw.metric, hnsw.data[i], hnsw.data[j])
 @inline distance(hnsw, i, q::AbstractVector) = @inbounds evaluate(hnsw.metric, hnsw.data[i], q)
 @inline distance(hnsw, q::AbstractVector, j) = @inbounds evaluate(hnsw.metric, hnsw.data[j], q)
-@inline distance(hnsw, q::Matrix{Float32}, j) = @inbounds evaluate(hnsw.metric, q, hnsw.data[j])
-@inline distance(hnsw, i, q::Matrix{Float32}) = @inbounds evaluate(hnsw.metric, q, hnsw.data[i])
+@inline distance(hnsw, q::AbstractMatrix, j) = @inbounds evaluate(hnsw.metric, q, hnsw.data[j])
+@inline distance(hnsw, i, q::AbstractMatrix) = @inbounds evaluate(hnsw.metric, q, hnsw.data[i])
 
 function Base.show(io::IO, hnsw::HierarchicalNSW)
     lg = hnsw.lgraph
