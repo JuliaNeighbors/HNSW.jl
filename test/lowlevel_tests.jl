@@ -3,6 +3,7 @@ import HNSW: LayeredGraph, add_vertex!, add_edge!, get_entry_level, levelof, nei
 using Test
 using LinearAlgebra
 using NearestNeighbors
+using Distances
 
 @testset "Nearest & Furthest" begin
     for i=1:10
@@ -93,4 +94,15 @@ end
             end
         end
     end
+end
+
+@testset "Matrix distance" begin 
+    struct MatrixDist <: PreMetric end
+    (::MatrixDist)(X, Y) = matrix_dist(X, Y)
+
+    matrix_dist(X, Y) = X * Y |> sum
+    M1 = [1 1; 1 1]
+    M2 = [1 0; 0 1]
+
+    @test matrix_dist(M1, M2) == 4
 end
