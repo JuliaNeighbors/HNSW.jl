@@ -89,7 +89,7 @@ end
 ###########################################################################################
 function knn_search(hnsw, q, K)
     ef = max(K, hnsw.ef)
-    @assert length(q)==length(hnsw.data[1])
+    # @assert length(q)==length(hnsw.data[1])
     ep = get_enter_point(hnsw)
     epN = Neighbor(ep, distance(hnsw, q, ep))
     L = get_entry_level(hnsw) #layer of ep , top layer of hnsw
