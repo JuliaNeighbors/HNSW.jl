@@ -88,9 +88,7 @@ function add!(hnsw::HierarchicalNSW, newdata::Vector{D}) where D
     extend!(hnsw.vlp, endindex)
 
     # Now add the new data at end of our existing data
-    for d in newdata
-        push!(hnsw.data, d)
-    end
+    append!(hnsw.data, newdata)
 
     # Now we can add the datum to the graph, as usual
     add_to_graph!(hnsw, startindex:endindex)
