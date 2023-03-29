@@ -8,8 +8,10 @@ function LinkList{T}(num_elements::Int) where {T}
 end
 
 function extend!(linklist::LinkList{T}, newindex::Integer) where {T}
-    for _ in (length(linklist)+1):newindex
-        push!(linklist, T[])
+    initial_length = length(linklist)
+    resize!(linklist, newindex)
+    @inbounds for i in (initial_length+1):newindex
+        linklist[i] = T[]
     end
 end
 
@@ -68,12 +70,10 @@ function set_edges!(lg, level, source, targets)
     M = max_connections(lg, level)
     T = length(targets)
     links = lg.linklist[source]
-    @inbounds for m ∈ 1:min(M,T)
-        links[offset + m]  = targets[m].idx
+    @inbounds for m ∈ 1:min(M, T)
+        links[offset+m] = targets[m].idx
     end
-    @inbounds for m ∈ T+1:M
-        links[offset + m]  = 0 #type ?
-    end
+    links[offset+T+1:offset+M] .= zero(eltype(links))
 end
 set_edges!(lg, level, source::Neighbor, targets) = set_edges!(lg, level, source.idx, targets)
 

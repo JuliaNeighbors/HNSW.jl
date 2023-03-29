@@ -98,9 +98,9 @@ add!(hnsw::HierarchicalNSW, newdata::AbstractVector{D}) where D =
     add!(hnsw, collect(newdata))
 
 function extend_added!(hnsw::HierarchicalNSW, newindex::Integer)
-    for _ in (length(hnsw.added)+1):newindex
-        push!(hnsw.added, false)
-    end
+    initial_length = length(hnsw.added)
+    resize!(hnsw.added, newindex)
+    hnsw.added[initial_length+1:end] .= false
 end
 
 ###########################################################################################

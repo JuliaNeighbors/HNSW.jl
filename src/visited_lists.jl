@@ -18,9 +18,9 @@ VisitedList(num_elements) = VisitedList(Vector{UInt8}(fill(zero(UInt8),num_eleme
 
 function extend!(vl::VisitedList, total_num_elements::Integer)
     z = zero(eltype(vl.list))
-    for _ in (length(vl.list)+1):total_num_elements
-        push!(vl.list, z)
-    end
+    initial_length = length(vl.list)
+    resize!(vl.list, total_num_elements)
+    vl.list[initial_length+1:end] .= z
 end
 
 function reset!(vl::VisitedList)
