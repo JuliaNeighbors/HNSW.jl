@@ -4,7 +4,7 @@ module HNSW
     @reexport using Distances
 
     export HierarchicalNSW
-    export add_to_graph!, set_ef!
+    export add_to_graph!, set_ef!, add!
     export knn_search
 
     include("neighborset.jl")
