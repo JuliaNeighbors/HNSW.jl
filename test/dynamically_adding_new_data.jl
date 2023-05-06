@@ -49,3 +49,20 @@ using Test
     #     end
     # end
 end
+
+@testset "Init empty graph and add data" begin
+    dim = 5
+    num_elements = 100
+    data = [rand(Float32, dim) for n ∈ 1:num_elements]
+
+    hnsw = HierarchicalNSW(eltype(data))
+
+    # Now add new data
+    HNSW.add!(hnsw, data)
+    HNSW.add!(hnsw, data)
+
+    @test length(hnsw.data) == 2 * num_elements
+
+    idx, _ = knn_search(hnsw, data[begin], 10)
+    @test !isempty(intersect([1, 1 + num_elements], idx))
+end
