@@ -1,7 +1,7 @@
 name = "HNSW"
 uuid = "540f64fa-c57e-11e8-081c-41422cda4629"
 authors = ["Jonas Isensee <jonas.isensee@web.de>"]
-version = "0.1.4"
+version = "0.1.5"
 
 [deps]
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
