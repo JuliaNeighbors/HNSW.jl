@@ -64,22 +64,17 @@ end
 
 
 
-function neighbor_heuristic(hnsw, level, candidates)
+function neighbor_heuristic(hnsw, level, candidates::T)::T where {T<:NeighborSet}
     M = max_connections(hnsw.lgraph, level)
-    length(candidates) <= M  && return candidates
+    length(candidates) <= M && return candidates
 
-    chosen = typeof(candidates)()
+    chosen = T()
     for e ∈ candidates
-        length(chosen) < M  || break
+        length(chosen) < M || break
         #Heuristic:
-        good = true
-        for r ∈ chosen
-            if e.dist > distance(hnsw, e.idx, r.idx)
-                good=false
-                break
-            end
+        if all(r -> e.dist <= distance(hnsw, e.idx, r.idx), chosen)
+            insert!(chosen, e)
         end
-        good && insert!(chosen, e)
     end
     return chosen
 end
