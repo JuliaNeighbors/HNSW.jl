@@ -125,7 +125,7 @@ neighbors(lg, level, q::Neighbor) = neighbors(lg, level, q.idx)
 ############################################################################################
 #                             Add Connections Into Graph                                   #
 ############################################################################################
-function add_connections!(hnsw, level, query, candidates)
+function add_connections!(hnsw, level, query, candidates::NeighborSet)
     lg = hnsw.lgraph
     M = max_connections(lg, level)
     W = neighbor_heuristic(hnsw, level, candidates)
@@ -142,7 +142,7 @@ function add_connections!(hnsw, level, query, candidates)
                 insert!(C, Neighbor(c, dist))
             end
             C = neighbor_heuristic(hnsw, level, C)
-            q ∈ C && set_edges!(lg, level, n, C)
+            q.dist <= furthest(C).dist && set_edges!(lg, level, n, C)
         end
     end
 end

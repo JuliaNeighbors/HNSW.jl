@@ -166,7 +166,9 @@ Add new data to the graph.
 """
 function add!(hnsw::HierarchicalNSW, newdata::Vector{D}) where {D}
     # Must be of same type as existing data
-    @assert eltype(hnsw.data) == D
+    if eltype(hnsw.data) != D
+        error(string("Expected element type: $(eltype(hnsw.data)). Actual type: $(D)"))
+    end
 
     # Get indices to new data and then extend the layered graph
     # and the added vector so we can store info about them.
