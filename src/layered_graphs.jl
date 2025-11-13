@@ -34,7 +34,7 @@ The bottom layer contains all points and each upper layer contains a subset of
 nodes of the one below. `M0` is the maximum number of edges in the bottom layer.
 `M` is the maximum number of edges in all other layers.
 
-`m_L` is used for random level generation. ( See ['get_random_level'](@ref) )
+`m_L` is used for random level generation. ( See [`get_random_level`](@ref) )
 """
 function LayeredGraph{T}(num_elements::Int, M, M0, m_L) where {T}
     LayeredGraph{T}(
