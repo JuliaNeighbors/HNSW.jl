@@ -82,6 +82,22 @@ end
 ###########################################################################################
 #                                       KNN Search                                        #
 ###########################################################################################
+"""
+    knn_search(hnsw, query, k) -> (indices, distances)
+
+Search for the `k` approximate nearest neighbors of `query` in the HNSW index.
+
+# Arguments
+- `hnsw::HierarchicalNSW`: The HNSW index to search
+- `query`: A single query point or a vector of query points
+- `k::Integer`: Number of nearest neighbors to return
+
+# Returns
+- `indices`: Indices of the k nearest neighbors
+- `distances`: Distances to the k nearest neighbors
+
+If `query` is a vector of points, returns vectors of indices and distances.
+"""
 function knn_search(hnsw, q, K)
     ef = max(K, hnsw.ef)
     # @assert length(q)==length(hnsw.data[1])

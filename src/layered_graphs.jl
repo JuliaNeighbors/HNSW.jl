@@ -82,7 +82,15 @@ set_edges!(lg, level, source::Neighbor, targets) = set_edges!(lg, level, source.
 ############################################################################################
 
 Base.length(lg::LayeredGraph) = lg.numlayers
+
+"""
+    get_random_level(lg)
+
+Generate a random layer level for a new node using exponential decay.
+Uses the normalization factor `m_L` to control the probability distribution.
+"""
 get_random_level(lg) = floor(Int, -log(rand())* lg.m_L) + 1
+
 max_connections(lg::LayeredGraph, level) = level==1 ? lg.M0 : lg.M
 index_offset(lg, level) = level > 1 ? lg.M0 + lg.M*(level-2) : 0
 levelof(lg::LayeredGraph, q) = 1 + (length(lg.linklist[q])-lg.M0) ÷ lg.M

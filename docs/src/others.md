@@ -1,5 +1,7 @@
-# All internal functions
+# Internal functions
 
 ```@autodocs
 Modules = [HNSW]
+Private = true
+Public = false
 ```
