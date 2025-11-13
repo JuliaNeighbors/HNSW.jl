@@ -5,6 +5,7 @@ CurrentModule = HNSW
 ```
 
 ```@docs
+HierarchicalNSW
 HierarchicalNSW(data)
 HierarchicalNSW(type::Type)
 add_to_graph!
