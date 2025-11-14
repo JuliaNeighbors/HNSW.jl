@@ -157,6 +157,13 @@ add_to_graph!(notify_func::Function, hnsw::HierarchicalNSW; kwargs...) =
 add_to_graph!(hnsw::HierarchicalNSW; kwargs...) =
     add_to_graph!(identity, hnsw; kwargs...)
 
+"""
+    set_ef!(hnsw, ef)
+
+Set the `ef` parameter for the HNSW index, which controls the maximum length
+of the dynamic candidate list during search. Higher values improve accuracy
+but increase search time.
+"""
 set_ef!(hnsw::HierarchicalNSW, ef) = hnsw.ef = ef
 
 """

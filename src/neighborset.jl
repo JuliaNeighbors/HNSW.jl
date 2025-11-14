@@ -13,7 +13,7 @@ end
 
 """
     NeighborSet(n::Neighbor)
-An ordered List of ['Neighbor'](@ref), sorted by
+An ordered List of [`Neighbor`](@ref), sorted by
 the `dist` field.
 Elements can be added by calling
 
