@@ -16,6 +16,13 @@ To reset the list, call 'reset!(vl)'.
 """
 VisitedList(num_elements) = VisitedList(Vector{UInt8}(fill(zero(UInt8),num_elements)),1)
 
+function extend!(vl::VisitedList, total_num_elements::Integer)
+    z = zero(eltype(vl.list))
+    initial_length = length(vl.list)
+    resize!(vl.list, total_num_elements)
+    vl.list[initial_length+1:end] .= z
+end
+
 function reset!(vl::VisitedList)
     vl.visited_value += one(UInt8)
     if vl.visited_value == zero(UInt8)
@@ -32,7 +39,6 @@ visit!(vl::VisitedList, q::Neighbor) = visit!(vl, q.idx)
 mutable struct VisitedListPool
     pool::Vector{VisitedList}
     num_elements::Int
-    poolguard::Threads.Mutex
 end
 
 """
@@ -43,25 +49,28 @@ A thread-stable container for multiple `VisitedList`s initialized with
 To retrieve a list, call `get_list(vlp::VisitedListPool)`,
 and to release ist, call `release_list(vlp, vl::VisitedList)`.
 """
-function VisitedListPool(num_lists, num_elements)
+function VisitedListPool(num_lists::Real, num_elements::Real)
     pool = [VisitedList(num_elements) for n=1:num_lists]
-    VisitedListPool(pool, num_elements, Threads.Mutex())
+    VisitedListPool(pool, num_elements)
+end
+
+function extend!(vlp::VisitedListPool, total_num_elements::Integer)
+    for vl in vlp.pool
+        extend!(vl, total_num_elements)
+    end
+    vlp.num_elements = total_num_elements
 end
 
 function get_list(vlp::VisitedListPool)
-    lock(vlp.poolguard)
-        if length(vlp.pool) > 0
-            vl = pop!(vlp.pool)
-            reset!(vl)
-        else
-            vl = VisitedList(vlp.num_elements)
-        end
-    unlock(vlp.poolguard)
+    if length(vlp.pool) > 0
+        vl = pop!(vlp.pool)
+        reset!(vl)
+    else
+        vl = VisitedList(vlp.num_elements)
+    end
     return vl
 end
 
 function release_list(vlp::VisitedListPool, vl::VisitedList)
-    lock(vlp.poolguard)
-        push!(vlp.pool,vl)
-    unlock(vlp.poolguard)
+    push!(vlp.pool,vl)
 end

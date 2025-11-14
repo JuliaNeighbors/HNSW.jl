@@ -59,7 +59,7 @@ function search_layer(hnsw, query, enter_point, num_points, level)
                 if !isvisited(vl, e)
                     visit!(vl, e)
                     eN = Neighbor(e, distance(hnsw,query,e))
-                    if eN.dist < furthest(W).dist || length(W) < num_points
+                    if length(W) < num_points || eN.dist < furthest(W).dist
                         insert!(C, eN)
                         insert!(W, eN) #add optional maxlength feature?
                         length(W) > num_points && pop_furthest!(W)
@@ -74,22 +74,17 @@ end
 
 
 
-function neighbor_heuristic(hnsw, level, candidates)
+function neighbor_heuristic(hnsw, level, candidates::T)::T where {T<:NeighborSet}
     M = max_connections(hnsw.lgraph, level)
-    length(candidates) <= M  && return candidates
+    length(candidates) <= M && return candidates
 
-    chosen = typeof(candidates)()
+    chosen = T()
     for e ∈ candidates
-        length(chosen) < M  || break
+        length(chosen) < M || break
         #Heuristic:
-        good = true
-        for r ∈ chosen
-            if e.dist > distance(hnsw, e.idx, r.idx)
-                good=false
-                break
-            end
+        if all(r -> e.dist <= distance(hnsw, e.idx, r.idx), chosen)
+            insert!(chosen, e)
         end
-        good && insert!(chosen, e)
     end
     return chosen
 end
@@ -97,9 +92,25 @@ end
 ###########################################################################################
 #                                       KNN Search                                        #
 ###########################################################################################
+"""
+    knn_search(hnsw, query, k) -> (indices, distances)
+
+Search for the `k` approximate nearest neighbors of `query` in the HNSW index.
+
+# Arguments
+- `hnsw::HierarchicalNSW`: The HNSW index to search
+- `query`: A single query point or a vector of query points
+- `k::Integer`: Number of nearest neighbors to return
+
+# Returns
+- `indices`: Indices of the k nearest neighbors
+- `distances`: Distances to the k nearest neighbors
+
+If `query` is a vector of points, returns vectors of indices and distances.
+"""
 function knn_search(hnsw, q, K)
     ef = max(K, hnsw.ef)
-    @assert length(q)==length(hnsw.data[1])
+    # @assert length(q)==length(hnsw.data[1])
     ep = get_enter_point(hnsw)
     epN = Neighbor(ep, distance(hnsw, q, ep))
     L = get_entry_level(hnsw) #layer of ep , top layer of hnsw
@@ -120,10 +131,10 @@ function knn_search(hnsw::HierarchicalNSW{T,F},
     dists = Vector{Vector{F}}(undef,length(q))
     if multithreading
         Threads.@threads for n = 1:length(q)
-            idxs[n], dists[n] = knn_search(hnsw, q[n], K)
+            @inbounds idxs[n], dists[n] = knn_search(hnsw, q[n], K)
         end
     else
-        for n = 1:length(q)
+        @inbounds for n = 1:length(q)
             idxs[n], dists[n] = knn_search(hnsw, q[n], K)
         end
     end

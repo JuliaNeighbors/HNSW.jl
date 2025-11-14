@@ -7,6 +7,14 @@ function LinkList{T}(num_elements::Int) where {T}
     Vector{Vector{T}}(undef, num_elements)
 end
 
+function extend!(linklist::LinkList{T}, newindex::Integer) where {T}
+    initial_length = length(linklist)
+    resize!(linklist, newindex)
+    @inbounds for i in (initial_length+1):newindex
+        linklist[i] = T[]
+    end
+end
+
 struct LayeredGraph{T}
     linklist::LinkList{T}  #linklist[index][level][link]
     locklist::Vector{Mutex}
@@ -15,6 +23,14 @@ struct LayeredGraph{T}
     m_L::Float64
 end
 
+function extend!(lgraph::LayeredGraph{T}, newindex::Integer) where {T}
+    extend!(lgraph.linklist, newindex)
+    initial_length = length(lgraph.locklist)
+    resize!(lgraph.locklist, newindex)
+    for i in (initial_length+1):newindex
+        lgraph.locklist[i] = Mutex()
+    end
+end
 
 
 """
@@ -24,7 +40,7 @@ The bottom layer contains all points and each upper layer contains a subset of
 nodes of the one below. `M0` is the maximum number of edges in the bottom layer.
 `M` is the maximum number of edges in all other layers.
 
-`m_L` is used for random level generation. ( See ['get_random_level'](@ref) )
+`m_L` is used for random level generation. ( See [`get_random_level`](@ref) )
 """
 function LayeredGraph{T}(num_elements::Int, M, M0, m_L) where {T}
     LayeredGraph{T}(
@@ -43,9 +59,10 @@ end
 
 function add_edge!(lg, level, source::Integer, target::Integer)
     offset = index_offset(lg,level)
-    for m ∈ 1:max_connections(lg, level)
-        if lg.linklist[source][offset + m] == 0
-            lg.linklist[source][offset + m]  = target
+    links = lg.linklist[source]
+    @inbounds for m ∈ 1:max_connections(lg, level)
+        if links[offset + m] == 0
+            links[offset + m]  = target
             return true
         end
     end
@@ -59,12 +76,11 @@ function set_edges!(lg, level, source, targets)
     offset = index_offset(lg, level)
     M = max_connections(lg, level)
     T = length(targets)
-    for m ∈ 1:min(M,T)
-        lg.linklist[source][offset + m]  = targets[m].idx
+    links = lg.linklist[source]
+    @inbounds for m ∈ 1:min(M, T)
+        links[offset+m] = targets[m].idx
     end
-    for m ∈ T+1:M
-        lg.linklist[source][offset + m]  = 0 #type ?
-    end
+    links[offset+T+1:offset+M] .= zero(eltype(links))
 end
 set_edges!(lg, level, source::Neighbor, targets) = set_edges!(lg, level, source.idx, targets)
 
@@ -72,11 +88,17 @@ set_edges!(lg, level, source::Neighbor, targets) = set_edges!(lg, level, source.
 #                                  Utility Functions                                       #
 ############################################################################################
 
-Base.length(lg::LayeredGraph) = lg.numlayers
+"""
+    get_random_level(lg)
+
+Generate a random layer level for a new node using exponential decay.
+Uses the normalization factor `m_L` to control the probability distribution.
+"""
 get_random_level(lg) = floor(Int, -log(rand())* lg.m_L) + 1
+
 max_connections(lg::LayeredGraph, level) = level==1 ? lg.M0 : lg.M
 index_offset(lg, level) = level > 1 ? lg.M0 + lg.M*(level-2) : 0
-levelof(lg::LayeredGraph, q) = 1 + (length(lg.linklist[q])-lg.M0) % lg.M
+levelof(lg::LayeredGraph, q) = 1 + (length(lg.linklist[q])-lg.M0) ÷ lg.M
 
 ############################################################################################
 #                              Neighbors / Link Iteration                                  #
@@ -116,7 +138,7 @@ neighbors(lg, level, q::Neighbor) = neighbors(lg, level, q.idx)
 ############################################################################################
 #                             Add Connections Into Graph                                   #
 ############################################################################################
-function add_connections!(hnsw, level, query, candidates)
+function add_connections!(hnsw, level, query, candidates::NeighborSet)
     lg = hnsw.lgraph
     M = max_connections(lg, level)
     W = neighbor_heuristic(hnsw, level, candidates)
@@ -126,8 +148,7 @@ function add_connections!(hnsw, level, query, candidates)
     for n in W
         q = Neighbor(query, n.dist)
         lock(lg.locklist[n.idx]) #lock() linklist of n here
-            if   add_edge!(lg, level, n, q)
-            else
+            if ! add_edge!(lg, level, n, q)
                 #conditionally remove weakest link and replace it
                 C = NeighborSet(q)
                 for c in neighbors(lg, level, n)
@@ -135,8 +156,8 @@ function add_connections!(hnsw, level, query, candidates)
                     insert!(C, Neighbor(c, dist))
                 end
                 C = neighbor_heuristic(hnsw, level, C)
-                q ∈ C && set_edges!(lg, level, n, C)
+                q.dist <= furthest(C).dist && set_edges!(lg, level, n, C)
             end
-        unlock(lg.locklist[n.idx]) #unlock here
+        unlock(lg.locklist[n.idx])
     end
 end

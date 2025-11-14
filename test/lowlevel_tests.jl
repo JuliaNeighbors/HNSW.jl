@@ -3,6 +3,7 @@ import HNSW: LayeredGraph, add_vertex!, add_edge!, get_entry_level, levelof, nei
 using Test
 using LinearAlgebra
 using NearestNeighbors
+using Distances
 
 @testset "Nearest & Furthest" begin
     for i=1:10
@@ -93,4 +94,23 @@ end
             end
         end
     end
+end
+
+@testset "Matrix distance" begin 
+    struct MatrixDist <: PreMetric end
+    (::MatrixDist)(X, Y) = matrix_dist(X, Y)
+    matrix_dist(X, Y) = X * Y |> sum
+    
+    HNSWparams = Dict(
+        :efConstruction => 10,
+        :metric => MatrixDist(),
+        :M => 10,
+        :ef => 10)
+    hnsw_data = map(i -> rand(2,2), 1:20)
+    hnsw = HierarchicalNSW(hnsw_data; HNSWparams...)
+    M1 = [1 1; 1 1]
+    M2 = [0 0; 0 0]
+    @test typeof(HNSW.distance(hnsw, 1, M1)) == Float64
+    @test HNSW.distance(hnsw, 1, M2) == 0
+    @test HNSW.distance(hnsw, M2, 2) == 0
 end

@@ -1,7 +1,3 @@
-[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaNeighbors.github.io/HNSW.jl/stable)
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaNeighbors.github.io/HNSW.jl/dev)
-
-
 # HNSW.jl
 Approximate Nearest Neighbor Searches using the
 "Hierarchical Navigable Small World" (**HNSW**) algorithm
@@ -48,12 +44,12 @@ where `query` may either be a single point of type `eltype(data)`
 or a vector of such points.
 
 
-## A simple example:
+### A simple example:
 ```julia
 using HNSW
 
 dim = 10
-num_elements = 10000
+num_elements = 1000
 data = [rand(dim) for i=1:num_elements]
 
 #Intialize HNSW struct
@@ -71,17 +67,9 @@ add_to_graph!(hnsw)
 #   end
 # end
 
-queries = [rand(dim) for i=1:1000]
+queries = [rand(dim) for i=1:100]
 
 k = 10
 # Find k (approximate) nearest neighbors for each of the queries
 idxs, dists = knn_search(hnsw, queries, k)
 ```
-
-## Multi-Threading
-A multi-threaded version of this algorithm is available.
-To use it, checkout the branch `multi-threaded` and start the indexing with:
-```julia
- add_to_graph!(hnsw; multithreading=true)
-```
-For multi-threaded searches add `multithreading=true` as a keyword argument to `knn_search`.
